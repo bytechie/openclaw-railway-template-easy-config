@@ -24,53 +24,17 @@ function debug(...args) {
   if (DEBUG) console.log(...args);
 }
 
-// Gateway admin token (protects Openclaw gateway + Control UI).
-// Must be stable across restarts. If not provided via env, persist it in the state dir.
-function resolveGatewayToken() {
-  console.log(`[token] ========== SERVER STARTUP TOKEN RESOLUTION ==========`);
-  const envTok = process.env.OPENCLAW_GATEWAY_TOKEN?.trim();
-  console.log(`[token] ENV OPENCLAW_GATEWAY_TOKEN exists: ${!!process.env.OPENCLAW_GATEWAY_TOKEN}`);
-  console.log(`[token] ENV value length: ${process.env.OPENCLAW_GATEWAY_TOKEN?.length || 0}`);
-  console.log(`[token] After trim length: ${envTok?.length || 0}`);
-
-  if (envTok) {
-    console.log(`[token] ✓ Using token from OPENCLAW_GATEWAY_TOKEN env variable`);
-    console.log(`[token]   First 16 chars: ${envTok.slice(0, 16)}...`);
-    console.log(`[token]   Full token: ${envTok}`);
-    return envTok;
-  }
-
-  console.log(`[token] Env variable not available, checking persisted file...`);
-  const tokenPath = path.join(STATE_DIR, "gateway.token");
-  console.log(`[token] Token file path: ${tokenPath}`);
-
-  try {
-    const existing = fs.readFileSync(tokenPath, "utf8").trim();
-    if (existing) {
-      console.log(`[token] ✓ Using token from persisted file`);
-      console.log(`[token]   First 16 chars: ${existing.slice(0, 8)}...`);
-      return existing;
-    }
-  } catch (err) {
-    console.log(`[token] Could not read persisted file: ${err.message}`);
-  }
-
-  const generated = crypto.randomBytes(32).toString("hex");
-  console.log(`[token] ⚠️  Generating new random token (${generated.slice(0, 8)}...)`);
-  try {
-    fs.mkdirSync(STATE_DIR, { recursive: true });
-    fs.writeFileSync(tokenPath, generated, { encoding: "utf8", mode: 0o600 });
-    console.log(`[token] Persisted new token to ${tokenPath}`);
-  } catch (err) {
-    console.warn(`[token] Could not persist token: ${err}`);
-  }
-  return generated;
-}
-
-const OPENCLAW_GATEWAY_TOKEN = resolveGatewayToken();
+// Gateway admin token - use SETUP_PASSWORD for simplicity
+// This protects both the /setup wizard and the OpenClaw gateway
+const OPENCLAW_GATEWAY_TOKEN = SETUP_PASSWORD || crypto.randomBytes(32).toString("hex");
 process.env.OPENCLAW_GATEWAY_TOKEN = OPENCLAW_GATEWAY_TOKEN;
-console.log(`[token] Final resolved token: ${OPENCLAW_GATEWAY_TOKEN.slice(0, 16)}... (len: ${OPENCLAW_GATEWAY_TOKEN.length})`);
-console.log(`[token] ========== TOKEN RESOLUTION COMPLETE ==========\n`);
+
+if (!SETUP_PASSWORD) {
+  console.warn("[setup] WARNING: SETUP_PASSWORD not set - using auto-generated token");
+  console.warn(`[setup] Gateway token: ${OPENCLAW_GATEWAY_TOKEN.slice(0, 16)}...`);
+} else {
+  console.log("[setup] ✓ Using SETUP_PASSWORD as gateway token");
+}
 
 // Where the gateway will listen internally (we proxy to it).
 const INTERNAL_GATEWAY_PORT = 18789;

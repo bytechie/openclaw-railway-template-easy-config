@@ -26,16 +26,7 @@ In Railway Template Composer:
 
 Required:
 
-- `SETUP_PASSWORD` — user-provided password to access `/setup`
-
-Recommended:
-
-- `OPENCLAW_STATE_DIR=/data/.openclaw`
-- `OPENCLAW_WORKSPACE_DIR=/data/workspace`
-
-Optional:
-
-- `OPENCLAW_GATEWAY_TOKEN` — if not set, the wrapper generates one (not ideal). In a template, set it using a generated secret.
+- `SETUP_PASSWORD` — password to access `/setup` and authenticate with the OpenClaw gateway
 
 Notes:
 
@@ -75,8 +66,6 @@ docker build -t openclaw-railway-template .
 docker run --rm -p 8080:8080 \
   -e PORT=8080 \
   -e SETUP_PASSWORD=test \
-  -e OPENCLAW_STATE_DIR=/data/.openclaw \
-  -e OPENCLAW_WORKSPACE_DIR=/data/workspace \
   -v $(pwd)/.tmpdata:/data \
   openclaw-railway-template
 
