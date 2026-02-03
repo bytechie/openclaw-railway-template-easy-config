@@ -718,15 +718,22 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
 
       // Configure Atlas Cloud if selected (using OpenAI-compatible endpoint)
       if (payload.authChoice === "atlas-api-key") {
+        // Set OpenAI as the model provider
+        await runCmd(
+          OPENCLAW_NODE,
+          clawArgs(["config", "set", "model.provider", "openai"]),
+        );
+        // Set the OpenAI-compatible base URL
         await runCmd(
           OPENCLAW_NODE,
           clawArgs(["config", "set", "env.OPENAI_BASE_URL", "https://api.atlascloud.ai/v1/"]),
         );
+        // Set the default model
         await runCmd(
           OPENCLAW_NODE,
-          clawArgs(["config", "set", "env.OPENAI_MODEL", "minimaxai/minimax-m2.1"]),
+          clawArgs(["config", "set", "model", "minimaxai/minimax-m2.1"]),
         );
-        extra += "\n[atlas] configured Atlas Cloud with OpenAI-compatible endpoint (model: minimaxai/minimax-m2.1)\n";
+        extra += "\n[atlas] configured Atlas Cloud with OpenAI-compatible endpoint (provider: openai, model: minimaxai/minimax-m2.1)\n";
       }
 
       // Apply changes immediately.
