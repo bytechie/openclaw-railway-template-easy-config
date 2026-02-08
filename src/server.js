@@ -458,13 +458,6 @@ function buildOnboardArgs(payload) {
       // This is the Anthropics setup-token flow.
       args.push("--token-provider", "anthropic", "--token", secret);
     }
-
-    // For Atlas Cloud, specify the default model during onboarding
-    // This ensures the correct model is used from the start, rather than
-    // trying to override it after onboarding (which doesn't work reliably)
-    if (payload.authChoice === "atlas-api-key") {
-      args.push("--model", "moonshotai/kimi-k2.5");
-    }
   }
 
   return args;
@@ -746,6 +739,20 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
           OPENCLAW_NODE,
           clawArgs(["config", "set", "model", "moonshotai/kimi-k2.5"]),
         );
+
+        // After setting the model, verify it was written correctly
+        const modelVerify = await runCmd(
+          OPENCLAW_NODE,
+          clawArgs(["config", "get", "model"]),
+        );
+        extra += `\n[atlas] verified model config: ${modelVerify.output || '(empty)'}\n`;
+
+        const providerVerify = await runCmd(
+          OPENCLAW_NODE,
+          clawArgs(["config", "get", "model.provider"]),
+        );
+        extra += `\n[atlas] verified provider config: ${providerVerify.output || '(empty)'}\n`;
+
         extra += "\n[atlas] configured Atlas Cloud with OpenAI-compatible endpoint (provider: openai, model: moonshotai/kimi-k2.5)\n";
       }
 
