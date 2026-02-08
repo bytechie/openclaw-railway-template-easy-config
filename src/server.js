@@ -796,10 +796,10 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
         );
         console.log(`[atlas] Set provider result: exit=${setProviderResult.code}`, setProviderResult.output || "(no output)");
 
-        // Set the active model to use Atlas Cloud (use agent.model, not models.model)
+        // Set the active model to use Atlas Cloud (use agents.defaults.model.primary)
         const setModelResult = await runCmd(
           OPENCLAW_NODE,
-          clawArgs(["config", "set", "agent.model", `atlas:${atlasModel}`]),
+          clawArgs(["config", "set", "agents.defaults.model.primary", `atlas:${atlasModel}`]),
         );
         console.log(`[atlas] Set model result: exit=${setModelResult.code}`, setModelResult.output || "(no output)");
 
