@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "magic-patterns": {
+      "baseUrl": "https://mcp.magicpatterns.com/mcp"
+    }
+  },
+  "imports": []
+}

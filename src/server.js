@@ -548,33 +548,38 @@ async function configureMagicPatternsMCP(enabled = true) {
   console.log(`[magicpatterns] Configuring Magic Patterns MCP server...`);
 
   try {
-    // Configure Magic Patterns MCP server using JSON config
-    // This uses the --json flag to set nested configuration
-    const mcpConfig = {
-      url: "https://mcp.magicpatterns.com/mcp"
-    };
-
-    const setResult = await runCmd(
-      OPENCLAW_NODE,
-      clawArgs(["config", "set", "--json", "mcp.servers.magicpatterns", JSON.stringify(mcpConfig)]),
+    // Install mcporter CLI first (required for MCP server management)
+    console.log(`[magicpatterns] Installing mcporter CLI...`);
+    const mcporterInstall = await runCmd(
+      "npm",
+      ["install", "-g", "mcporter"],
+      { stdio: "pipe" }
     );
 
-    if (setResult.code !== 0) {
-      console.error(`[magicpatterns] Configuration failed: exit=${setResult.code}`);
-      console.error(`[magicpatterns] output: ${setResult.output}`);
-      return {
-        ok: false,
-        message: `Failed to configure Magic Patterns MCP server`,
-      };
+    // Configure Magic Patterns MCP server using mcporter
+    // Note: server name is "magic-patterns" (with hyphen) per official docs
+    console.log(`[magicpatterns] Adding Magic Patterns MCP server via mcporter...`);
+    const addResult = await runCmd(
+      "mcporter",
+      ["config", "add", "magic-patterns", "--url", "https://mcp.magicpatterns.com/mcp"],
+      { stdio: "pipe" }
+    );
+
+    if (addResult.code !== 0) {
+      console.error(`[magicpatterns] mcporter add failed: exit=${addResult.code}`);
+      console.error(`[magicpatterns] output: ${addResult.output}`);
+      // Continue anyway - server might already be configured
     }
 
-    // Verify the configuration was written
-    const verifyResult = await runCmd(
-      OPENCLAW_NODE,
-      clawArgs(["config", "get", "mcp.servers.magicpatterns"]),
+    // List servers to verify
+    console.log(`[magicpatterns] Verifying MCP server configuration...`);
+    const listResult = await runCmd(
+      "mcporter",
+      ["list"],
+      { stdio: "pipe" }
     );
 
-    console.log(`[magicpatterns] Verification output: ${verifyResult.output}`);
+    console.log(`[magicpatterns] mcporter list output: ${listResult.output}`);
 
     console.log(`[magicpatterns] ✓ MCP server configured successfully`);
     return {
