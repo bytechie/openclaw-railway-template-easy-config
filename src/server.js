@@ -833,7 +833,7 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
       }
 
       // Configure Magic Patterns MCP server for UI generation
-      const mcpResult = await configureMagicPatternsMCP();
+      const mcpResult = await configureMagicPatternsMCP(payload.enableMagicPatternsMCP !== false);
       if (mcpResult.ok) {
         extra += `\n[magicpatterns] ${mcpResult.message}\n`;
       } else {

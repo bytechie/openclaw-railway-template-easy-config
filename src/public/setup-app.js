@@ -274,6 +274,7 @@
     state.formData.discordToken = els.discordToken ? els.discordToken.value : '';
     state.formData.slackBotToken = els.slackBotToken ? els.slackBotToken.value : '';
     state.formData.slackAppToken = els.slackAppToken ? els.slackAppToken.value : '';
+    state.formData.enableMagicPatternsMCP = els.enableMagicPatternsMCP ? els.enableMagicPatternsMCP.checked : true;
 
     saveState();
   }
@@ -692,7 +693,8 @@
       telegramToken: state.formData.telegramToken,
       discordToken: state.formData.discordToken,
       slackBotToken: state.formData.slackBotToken,
-      slackAppToken: state.formData.slackAppToken
+      slackAppToken: state.formData.slackAppToken,
+      enableMagicPatternsMCP: state.formData.enableMagicPatternsMCP
     };
 
     if (els.log) {
