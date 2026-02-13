@@ -545,46 +545,41 @@ async function configureMagicPatternsMCP(enabled = true) {
     };
   }
 
-  console.log(`[magicpatterns] Configuring Magic Patterns MCP server using mcporter...`);
+  console.log(`[magicpatterns] Configuring Magic Patterns MCP server...`);
 
   try {
-    // First, ensure mcporter skill is installed (OpenClaw's MCP server manager)
-    const installResult = await runCmd(
+    // Configure Magic Patterns MCP server using JSON config
+    // This uses the --json flag to set nested configuration
+    const mcpConfig = {
+      url: "https://mcp.magicpatterns.com/mcp"
+    };
+
+    const setResult = await runCmd(
       OPENCLAW_NODE,
-      clawArgs(["skills", "install", "mcporter"]),
+      clawArgs(["config", "set", "--json", "mcp.servers.magicpatterns", JSON.stringify(mcpConfig)]),
     );
 
-    if (installResult.code !== 0) {
-      console.warn(`[magicpatterns] mcporter install returned exit=${installResult.code} (may already be installed)`);
-    }
-
-    // Configure Magic Patterns MCP server using mcporter
-    const addResult = await runCmd(
-      OPENCLAW_NODE,
-      clawArgs(["-c", "mcporter config add https://mcp.magicpatterns.com/mcp --name magicpatterns"]),
-    );
-
-    if (addResult.code !== 0) {
-      console.error(`[magicpatterns] mcporter config add failed: exit=${addResult.code}`);
-      console.error(`[magicpatterns] output: ${addResult.output}`);
+    if (setResult.code !== 0) {
+      console.error(`[magicpatterns] Configuration failed: exit=${setResult.code}`);
+      console.error(`[magicpatterns] output: ${setResult.output}`);
       return {
         ok: false,
-        message: `Failed to add Magic Patterns MCP server via mcporter`,
+        message: `Failed to configure Magic Patterns MCP server`,
       };
     }
 
-    // Verify the server was added
-    const listResult = await runCmd(
+    // Verify the configuration was written
+    const verifyResult = await runCmd(
       OPENCLAW_NODE,
-      clawArgs(["-c", "mcporter list"]),
+      clawArgs(["config", "get", "mcp.servers.magicpatterns"]),
     );
 
-    console.log(`[magicpatterns] mcporter list output: ${listResult.output}`);
+    console.log(`[magicpatterns] Verification output: ${verifyResult.output}`);
 
-    console.log(`[magicpatterns] ✓ MCP server configured successfully via mcporter`);
+    console.log(`[magicpatterns] ✓ MCP server configured successfully`);
     return {
       ok: true,
-      message: "Magic Patterns MCP server configured via mcporter for UI design generation",
+      message: "Magic Patterns MCP server configured for UI design generation",
     };
   } catch (err) {
     console.error(`[magicpatterns] Configuration error: ${err}`);
