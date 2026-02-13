@@ -536,7 +536,15 @@ function buildOnboardArgs(payload) {
   return args;
 }
 
-async function configureMagicPatternsMCP() {
+async function configureMagicPatternsMCP(enabled = true) {
+  if (!enabled) {
+    console.log(`[magicpatterns] Magic Patterns MCP disabled by user`);
+    return {
+      ok: true,
+      message: "Magic Patterns MCP server not configured (disabled)",
+    };
+  }
+
   console.log(`[magicpatterns] Configuring Magic Patterns MCP server...`);
 
   try {
@@ -546,19 +554,39 @@ async function configureMagicPatternsMCP() {
       clawArgs(["config", "set", "mcp.servers.magicpatterns.url", "https://mcp.magicpatterns.com/mcp"]),
     );
 
-    if (urlResult.code === 0) {
-      console.log(`[magicpatterns] ✓ MCP server configured successfully (hosted URL)`);
-      return {
-        ok: true,
-        message: "Magic Patterns MCP server configured for UI design generation",
-      };
-    } else {
+    if (urlResult.code !== 0) {
       console.error(`[magicpatterns] Configuration failed: url=${urlResult.code}`);
       return {
         ok: false,
         message: `Failed to configure Magic Patterns MCP server`,
       };
     }
+
+    // Enable MCP for agents (critical: tools won't be accessible without this)
+    const mcpEnabledResult = await runCmd(
+      OPENCLAW_NODE,
+      clawArgs(["config", "set", "mcp.enabled", "true"]),
+    );
+
+    if (mcpEnabledResult.code !== 0) {
+      console.warn(`[magicpatterns] Warning: Could not enable MCP globally (exit=${mcpEnabledResult.code})`);
+    }
+
+    // Explicitly allow agents to use MCP tools
+    const agentsMcpResult = await runCmd(
+      OPENCLAW_NODE,
+      clawArgs(["config", "set", "agents.defaults.mcp.enabled", "true"]),
+    );
+
+    if (agentsMcpResult.code !== 0) {
+      console.warn(`[magicpatterns] Warning: Could not enable MCP for agents (exit=${agentsMcpResult.code})`);
+    }
+
+    console.log(`[magicpatterns] ✓ MCP server configured successfully (hosted URL)`);
+    return {
+      ok: true,
+      message: "Magic Patterns MCP server configured for UI design generation",
+    };
   } catch (err) {
     console.error(`[magicpatterns] Configuration error: ${err}`);
     return {
