@@ -389,6 +389,18 @@ label {
   text-transform: uppercase;
 }
 
+.badge-new {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--success);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: var(--radius-full);
+  margin-left: var(--space-sm);
+  text-transform: uppercase;
+}
+
 .optional-text {
   font-weight: 400;
   color: var(--text-muted);

@@ -536,6 +536,38 @@ function buildOnboardArgs(payload) {
   return args;
 }
 
+async function configureMagicPatternsMCP() {
+  console.log(`[magicpatterns] Configuring Magic Patterns MCP server...`);
+
+  try {
+    // Set MCP server URL (hosted approach - official/recommended)
+    const urlResult = await runCmd(
+      OPENCLAW_NODE,
+      clawArgs(["config", "set", "mcp.servers.magicpatterns.url", "https://mcp.magicpatterns.com/mcp"]),
+    );
+
+    if (urlResult.code === 0) {
+      console.log(`[magicpatterns] ✓ MCP server configured successfully (hosted URL)`);
+      return {
+        ok: true,
+        message: "Magic Patterns MCP server configured for UI design generation",
+      };
+    } else {
+      console.error(`[magicpatterns] Configuration failed: url=${urlResult.code}`);
+      return {
+        ok: false,
+        message: `Failed to configure Magic Patterns MCP server`,
+      };
+    }
+  } catch (err) {
+    console.error(`[magicpatterns] Configuration error: ${err}`);
+    return {
+      ok: false,
+      message: `Error: ${String(err)}`,
+    };
+  }
+}
+
 function runCmd(cmd, args, opts = {}, extraEnv = {}) {
   return new Promise((resolve) => {
     const proc = childProcess.spawn(cmd, args, {
@@ -798,6 +830,14 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
           extra += `\n[slack config] exit=${set.code} (output ${set.output.length} chars)\n${set.output || "(no output)"}`;
           extra += `\n[slack verify] exit=${get.code} (output ${get.output.length} chars)\n${get.output || "(no output)"}`;
         }
+      }
+
+      // Configure Magic Patterns MCP server for UI generation
+      const mcpResult = await configureMagicPatternsMCP();
+      if (mcpResult.ok) {
+        extra += `\n[magicpatterns] ${mcpResult.message}\n`;
+      } else {
+        extra += `\n[magicpatterns] ⚠️  ${mcpResult.message}\n`;
       }
 
       // Configure Atlas Cloud if selected (using OpenAI-compatible endpoint)
