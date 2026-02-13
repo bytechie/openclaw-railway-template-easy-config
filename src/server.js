@@ -545,47 +545,46 @@ async function configureMagicPatternsMCP(enabled = true) {
     };
   }
 
-  console.log(`[magicpatterns] Configuring Magic Patterns MCP server...`);
+  console.log(`[magicpatterns] Configuring Magic Patterns MCP server using mcporter...`);
 
   try {
-    // Set MCP server URL (hosted approach - official/recommended)
-    const urlResult = await runCmd(
+    // First, ensure mcporter skill is installed (OpenClaw's MCP server manager)
+    const installResult = await runCmd(
       OPENCLAW_NODE,
-      clawArgs(["config", "set", "mcp.servers.magicpatterns.url", "https://mcp.magicpatterns.com/mcp"]),
+      clawArgs(["skills", "install", "mcporter"]),
     );
 
-    if (urlResult.code !== 0) {
-      console.error(`[magicpatterns] Configuration failed: url=${urlResult.code}`);
+    if (installResult.code !== 0) {
+      console.warn(`[magicpatterns] mcporter install returned exit=${installResult.code} (may already be installed)`);
+    }
+
+    // Configure Magic Patterns MCP server using mcporter
+    const addResult = await runCmd(
+      OPENCLAW_NODE,
+      clawArgs(["-c", "mcporter config add https://mcp.magicpatterns.com/mcp --name magicpatterns"]),
+    );
+
+    if (addResult.code !== 0) {
+      console.error(`[magicpatterns] mcporter config add failed: exit=${addResult.code}`);
+      console.error(`[magicpatterns] output: ${addResult.output}`);
       return {
         ok: false,
-        message: `Failed to configure Magic Patterns MCP server`,
+        message: `Failed to add Magic Patterns MCP server via mcporter`,
       };
     }
 
-    // Enable MCP for agents (critical: tools won't be accessible without this)
-    const mcpEnabledResult = await runCmd(
+    // Verify the server was added
+    const listResult = await runCmd(
       OPENCLAW_NODE,
-      clawArgs(["config", "set", "mcp.enabled", "true"]),
+      clawArgs(["-c", "mcporter list"]),
     );
 
-    if (mcpEnabledResult.code !== 0) {
-      console.warn(`[magicpatterns] Warning: Could not enable MCP globally (exit=${mcpEnabledResult.code})`);
-    }
+    console.log(`[magicpatterns] mcporter list output: ${listResult.output}`);
 
-    // Explicitly allow agents to use MCP tools
-    const agentsMcpResult = await runCmd(
-      OPENCLAW_NODE,
-      clawArgs(["config", "set", "agents.defaults.mcp.enabled", "true"]),
-    );
-
-    if (agentsMcpResult.code !== 0) {
-      console.warn(`[magicpatterns] Warning: Could not enable MCP for agents (exit=${agentsMcpResult.code})`);
-    }
-
-    console.log(`[magicpatterns] ✓ MCP server configured successfully (hosted URL)`);
+    console.log(`[magicpatterns] ✓ MCP server configured successfully via mcporter`);
     return {
       ok: true,
-      message: "Magic Patterns MCP server configured for UI design generation",
+      message: "Magic Patterns MCP server configured via mcporter for UI design generation",
     };
   } catch (err) {
     console.error(`[magicpatterns] Configuration error: ${err}`);
