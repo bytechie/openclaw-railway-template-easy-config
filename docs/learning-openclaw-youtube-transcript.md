@@ -15,9 +15,9 @@
 **[Visual: Thumbnail showing OpenClaw logo + Railway logo + "Deploy in 10 Minutes"]**
 
 **Host (on camera):**
-"What if you could deploy your own personal AI agent to the cloud in just a couple of minutes - one that works across all your favorite apps, can see your screen, hear your voice, and help with anything from coding to research to daily tasks?
+"What if you could deploy your own personal AI agent to the cloud in just a couple of minutes - with just ONE click? No forking repos, no configuration files, no command line needed.
 
-Hi, I'm [Your Name], and today I'm going to show you how to deploy OpenClaw - an open-source personal AI agent platform. OpenClaw is way more than just a coding assistant. It's a full-featured AI agent that can:
+Hi, I'm [Your Name], and today I'm going to show you how to deploy OpenClaw using the official Railway Template. OpenClaw is way more than just a coding assistant. It's a full-featured AI agent that can:
 
 - Work in 13+ platforms including WhatsApp, Telegram, Discord, Slack, Teams, and more
 - Use voice commands with always-on speech recognition
@@ -142,22 +142,33 @@ That's it! If you have these three accounts, you're ready to go."
 
 ### [8:00] - Deploying to Railway
 
-**[Visual: Screen recording of Railway deployment]**
+**[Visual: Screen recording of Railway template deployment]**
 
 **Host (on camera):**
-"Now let's deploy to Railway. I'll show you two methods, but we'll use the GitHub method since it's the most reliable.
+"Now let's deploy to Railway. The easiest way is to use the official Railway Template - this is the fastest method with zero configuration needed.
 
-**Step 1:** First, you need the code. Go to the GitHub repository for the OpenClaw Railway template and click 'Use this template' or fork it to your own account.
+**Step 1:** Click the template link in the description below:
+`railway.com/deploy/openclaw-ai-assistant-with-easy-install-`
 
-**Step 2:** Go to railway.app and click 'New Project.'
+This will open Railway and load the OpenClaw template directly.
 
-**Step 3:** Select 'Deploy from GitHub repo' and choose the repository you just forked.
+**Step 2:** If you're not logged in to Railway, you'll be prompted to sign in or create an account. Railway offers a free trial and paid plans start around $5/month.
 
-**Step 4:** Click 'Deploy Now' and wait for Railway to build the container.
+**Step 3:** Click the 'Deploy' button. Railway will automatically:
+- Create a new project for you
+- Set up all the required services
+- Build OpenClaw from source using the Dockerfile
+- Configure the default settings
 
-Railway will automatically detect the Dockerfile and build OpenClaw from source. This might take a few minutes on the first deploy."
+This is the beauty of Railway Templates - no manual configuration, no forking repositories, no complex setup. Just click and deploy!
 
 **[Visual: Progress bar showing build process]**
+
+The first build will take a few minutes as Railway compiles OpenClaw from source. You'll see the build progress in real-time.
+
+**[Visual: Build completing with green checkmark]**
+
+Once the build completes, you'll see your new OpenClaw service running. The template handles everything automatically, including setting up the web-based setup wizard we'll use next."
 
 ---
 
@@ -537,13 +548,15 @@ All the links you need are in the description below."
 "Thanks for watching this complete guide to deploying OpenClaw on Railway!
 
 You've learned:
-- How to deploy OpenClaw to Railway in just 10 minutes
+- How to deploy OpenClaw to Railway with just ONE CLICK using the template
 - How to configure Atlas Cloud for affordable AI models
 - How to use the setup wizard for zero-configuration deployment
 - How to test your deployment and troubleshoot issues
 - About OpenClaw's powerful capabilities across voice, vision, automation, and more
 
 Remember, OpenClaw isn't just for coding - it's a complete personal AI agent that can help with research, writing, planning, automation, and so much more. The Skills system via ClawHub means there's almost no limit to what you can extend it to do.
+
+And the best part? You can deploy all of this in minutes using the Railway Template link in the description. No coding, no configuration - just click and deploy.
 
 If you found this video helpful, please give it a like and subscribe for more tutorials on AI, cloud deployment, and developer tools.
 
@@ -562,17 +575,19 @@ Until next time, happy building!"
 
 ### Description (for YouTube)
 
-Deploy your own personal AI agent to the cloud in just 10 minutes! In this complete tutorial, I'll show you how to deploy OpenClaw - an open-source AI agent platform - to Railway.
+Deploy your own personal AI agent to the cloud with just ONE CLICK! In this complete tutorial, I'll show you how to deploy OpenClaw - an open-source AI agent platform - to Railway using the official Railway Template.
 
 **What is OpenClaw?**
 OpenClaw is way more than just a coding assistant. It's a full-featured personal AI agent platform that works across 13+ platforms including WhatsApp, Telegram, Discord, Slack, Teams, and more. It features voice commands, a live canvas for visual content, browser automation, and hundreds of community-built skills.
 
 You'll learn:
-- How to deploy OpenClaw to Railway with zero configuration
+- How to deploy OpenClaw to Railway with just ONE CLICK using the template
 - How to set up Atlas Cloud for affordable AI models
 - How to use the web-based setup wizard
 - How to test and troubleshoot your deployment
 - About OpenClaw's powerful Skills system via ClawHub
+
+**No coding required! No configuration files! Just click the template link and deploy!**
 
 OpenClaw works with Claude, GPT-4, Gemini, and cost-effective models from Atlas Cloud. It's like having your own personal AI assistant available 24/7 across all your devices and platforms - completely self-hosted with your data staying on your infrastructure!
 
@@ -598,6 +613,7 @@ OpenClaw works with Claude, GPT-4, Gemini, and cost-effective models from Atlas 
 28:00 - Outro
 
 **Links:**
+- Railway Template: https://railway.com/deploy/openclaw-ai-assistant-with-easy-install-
 - OpenClaw: https://github.com/openclaw/openclaw
 - OpenClaw Docs: https://docs.openclaw.ai
 - Railway: https://railway.app
@@ -610,14 +626,14 @@ OpenClaw works with Claude, GPT-4, Gemini, and cost-effective models from Atlas 
 ```
 Deploy Your Personal
 AI Agent to Railway
-10 Minutes
+ONE CLICK
 No Config Needed!
 ```
 
 ```
 OpenClaw + Railway
 Your Own AI Agent
-13+ Platforms
+One-Click Deploy
 Complete Guide
 ```
 
@@ -625,7 +641,7 @@ Complete Guide
 Self-Host Your AI
 Assistant Today
 Voice • Vision • Skills
-OpenClaw on Railway
+Template Deployment
 ```
 
 ---
@@ -653,7 +669,7 @@ OpenClaw on Railway
 
 ---
 
-**Version:** 1.1
+**Version:** 1.2
 **Created:** 2026-02-10
 **Updated:** 2026-02-16
 **Based on:** learning-openclaw-tutorial.md (v1.0)
