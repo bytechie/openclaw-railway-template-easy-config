@@ -10,7 +10,8 @@ A complete guide to integrating OpenClaw with Telegram for AI-powered conversati
   - [Step 1: Create Your Telegram Bot](#step-1-create-your-telegram-bot)
   - [Step 2: Configure Bot Privacy](#step-2-configure-bot-privacy)
   - [Step 3: Add Bot to OpenClaw Setup](#step-3-add-bot-to-openclaw-setup)
-  - [Step 4: Test Your Bot](#step-4-test-your-bot)
+  - [Step 4: Generate and Approve the Pairing Code](#step-4-generate-and-approve-the-pairing-code)
+  - [Step 5: Test Your Bot](#step-5-test-your-bot)
 - [Using OpenClaw on Telegram](#using-openclaw-on-telegram)
 - [Troubleshooting](#troubleshooting)
 - [BotFather Command Reference](#botfather-command-reference)
@@ -96,21 +97,92 @@ Telegram is one of the 13+ platforms supported by OpenClaw. Setting it up allows
 
 ---
 
-### Step 4: Test Your Bot
+### Step 4: Generate and Approve the Pairing Code
+
+By default, OpenClaw uses a **pairing system** for security. You'll need to authorize your Telegram account before using the bot.
+
+#### 4.1 Start the Bot and Get Your Pairing Code
 
 1. **Search for your bot** on Telegram using the username you created in Step 1
 
-2. **Start a conversation** by clicking "Start" or sending:
+2. **Send the `/start` command** to begin the conversation
+
+3. **The bot will reply** with a pairing message like:
    ```
-   /start
+   OpenClaw: access not configured.
+
+   Your Telegram user id: 1234567890
+
+   Pairing code: ABC123XY
+
+   Ask the bot owner to approve with:
+   openclaw pairing approve telegram ABC123XY
    ```
 
-3. **Send a test message** like:
+4. **Copy the pairing code** (e.g., `ABC123XY`) - you'll need it for the next step
+
+---
+
+#### 4.2 Approve the Pairing
+
+Use one of these methods to authorize your Telegram account:
+
+**Method 1: Web UI (Recommended)**
+
+1. Access the OpenClaw Control UI at:
    ```
-   Hello! Can you help me write a Python function to calculate fibonacci numbers?
+   https://your-app.up.railway.app/openclaw
    ```
 
-4. **Your OpenClaw AI should respond** with helpful code!
+2. In the chat interface, type:
+   ```
+   openclaw pairing approve telegram ABC123XY
+   ```
+   (Replace `ABC123XY` with your actual pairing code)
+
+**Method 2: Railway Console**
+
+1. Go to your Railway project
+2. Click on your OpenClaw service
+3. Click the **"Console"** tab
+4. Run the command:
+   ```bash
+   npx openclaw pairing approve telegram ABC123XY
+   ```
+
+---
+
+#### 4.3 Verify Approval
+
+1. **Check Telegram** - You should receive a confirmation message like:
+   ```
+   ✓ Your account has been approved! You can now use OpenClaw.
+   ```
+
+2. **Send a test message** to confirm everything is working:
+   ```
+   Hello! Can you help me?
+   ```
+
+3. **The bot should respond** normally now without any pairing errors.
+
+> 💡 **Note:** The pairing code is unique per Telegram user. Each person who wants to use your bot will need to go through this approval process (or you can change the `dmPolicy` to `allowAll` - see [Advanced Configuration](#advanced-configuration)).
+
+---
+
+### Step 5: Test Your Bot
+
+1. **Send a real test message** like:
+   ```
+   Can you help me write a Python function to calculate fibonacci numbers?
+   ```
+
+2. **Your OpenClaw AI should respond** with helpful code!
+
+3. **Try more complex tasks:**
+   - "Debug this code: [paste code]"
+   - "Explain how async/await works in JavaScript"
+   - "Create a React component for a todo list"
 
 ---
 
