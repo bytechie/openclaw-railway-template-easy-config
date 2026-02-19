@@ -54,6 +54,8 @@ RUN apt-get update \
     file \
     git \
     python3 \
+    python3-venv \
+    python3-pip \
     pkg-config \
     sudo \
   && rm -rf /var/lib/apt/lists/*
