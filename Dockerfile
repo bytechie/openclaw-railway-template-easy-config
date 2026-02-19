@@ -77,6 +77,20 @@ RUN corepack enable
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --prod --frozen-lockfile && pnpm store prune
 
+# Install uv for Python package management (needed for nano-pdf skill)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:${PATH}"
+
+# Install nano-pdf CLI for PDF editing skill
+RUN uv pip install nano-pdf
+
+# Install Python PDF libraries for pdf skill
+RUN pip3 install pypdf pdfplumber reportlab pytesseract pdf2image && \
+    apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    poppler-utils tesseract-ocr && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy built openclaw
 COPY --from=openclaw-build /openclaw /openclaw
 
@@ -85,6 +99,9 @@ RUN printf '%s\n' '#!/usr/bin/env bash' 'exec node /openclaw/dist/entry.js "$@"'
   && chmod +x /usr/local/bin/openclaw
 
 COPY src ./src
+
+# Copy ClawHub skills
+COPY skills /data/.openclaw/skills
 
 ENV PORT=8080
 EXPOSE 8080
