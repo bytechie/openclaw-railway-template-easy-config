@@ -77,21 +77,19 @@ RUN corepack enable
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --prod --frozen-lockfile && pnpm store prune
 
-# Install Python packages for PDF skills
-# Note: nano-pdf requires special handling due to PEP 668 (externally managed Python)
-# We'll install the core PDF libraries that work in most cases
-RUN pip3 install --break-system-packages pypdf pdfplumber reportlab pytesseract pdf2image && \
+# Install Python PDF libraries for pdf skill using virtual environment approach
+# Create a virtual environment to respect PEP 668 (externally managed Python)
+RUN python3 -m venv /opt/pdf-venv
+
+# Install PDF libraries in the virtual environment
+RUN /opt/pdf-venv/bin/pip install --no-cache-dir pypdf pdfplumber reportlab && \
     apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    poppler-utils tesseract-ocr libtesseract-dev && \
+    DEBIAN FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    poppler-utils && \
     rm -rf /var/lib/apt/lists/*
 
-# Install pipx for installing Python CLI applications globally
-RUN pip3 install --break-system-packages pipx
-
-# Install nano-pdf CLI using pipx (which manages its own virtual environment)
-RUN pipx install nano-pdf && \
-    pipx ensurepath
+# Add venv binaries to PATH for skill usage
+ENV PATH="/opt/pdf-venv/bin:${PATH}"
 
 # Copy built openclaw
 COPY --from=openclaw-build /openclaw /openclaw

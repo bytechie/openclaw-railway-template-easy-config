@@ -466,7 +466,6 @@ This Railway deployment comes with 8 popular community-built skills pre-installe
 | **daily-ai-news** | AI News Aggregator | You want a daily briefing of the latest AI news from multiple sources |
 | **market-news-analyst** | Financial Market Analysis | You need analysis of market-moving news, equity impact, or commodities |
 | **pdf** | PDF Toolkit | You need to extract text/tables, merge/split PDFs, fill forms, or process PDFs at scale |
-| **nano-pdf** | Natural-Language PDF Editor | You want to edit PDFs with simple instructions like 'fix the typo on page 1' |
 
 **More Popular Skills Available on ClawHub:**
 
@@ -691,11 +690,12 @@ Template Deployment
 
 ---
 
-**Version:** 1.6
+**Version:** 1.7
 **Created:** 2026-02-10
 **Updated:** 2026-02-18
 **Based on:** learning-openclaw-tutorial.md (v1.0)
 
 **Changelog:**
+- v1.7 (2026-02-18): Removed nano-pdf skill; using proper Python virtual environment for PDF libraries
 - v1.6 (2026-02-18): Added documentation for 8 pre-installed ClawHub skills (gog, summarize, weather, skill-creator, daily-ai-news, market-news-analyst, pdf, nano-pdf)
 - v1.5 (2026-02-16): Initial release
