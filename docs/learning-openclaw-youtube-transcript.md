@@ -453,33 +453,56 @@ OpenClaw uses AgentSkills - a framework that allows skills to:
 
 ClawHub at clawhub.ai is a fast skill registry with vector search. This means OpenClaw can automatically find and suggest relevant skills based on what you're trying to do. It's like having an app store for your AI agent!
 
-**Popular Skills Available:**
+**Pre-Installed Skills in This Railway Template**
 
-- **PDF** - Extract text, images, and metadata from PDF documents
-- **TRMNL Display** - Generate formatted content for e-ink displays
-- **Skill Exporter** - Export skills as standalone microservices
-- **Browser Automation** - Enhanced web scraping and form filling
-- **Data Analysis** - Work with CSVs, Excel files, and databases
-- **Image Processing** - Manipulate and analyze images
-- **Calendar Integration** - Connect to Google Calendar, Outlook, etc.
-- **Note Taking** - Integration with Notion, Obsidian, and other note apps
-- **Weather** - Real-time weather data and forecasts
+This Railway deployment comes with 8 popular community-built skills pre-installed and ready to use:
+
+| Skill | Purpose | Use When... |
+|-------|---------|-------------|
+| **gog** | Google Workspace CLI | You need to work with Gmail, Calendar, Drive, Contacts, Sheets, or Docs |
+| **summarize** | URL/File Summarizer | You want to summarize web pages, PDFs, images, audio, or YouTube videos |
+| **weather** | Weather Forecasts | You need current weather or forecasts (no API key required!) |
+| **skill-creator** | Create New Skills | You want to build your own custom skills for OpenClaw |
+| **daily-ai-news** | AI News Aggregator | You want a daily briefing of the latest AI news from multiple sources |
+| **market-news-analyst** | Financial Market Analysis | You need analysis of market-moving news, equity impact, or commodities |
+| **pdf** | PDF Toolkit | You need to extract text/tables, merge/split PDFs, fill forms, or process PDFs at scale |
+| **nano-pdf** | Natural-Language PDF Editor | You want to edit PDFs with simple instructions like 'fix the typo on page 1' |
+
+**More Popular Skills Available on ClawHub:**
+
+- **GitHub** - Manage repos, issues, PRs, and CI/CD via the `gh` CLI
+- **Discord/Slack/Telegram** - Control messaging platforms and automate workflows
+- **API Gateway** - Connect to third-party APIs with managed OAuth
+- **Test Runner** - Write and run tests across multiple languages
+- **Database Operations** - Design schemas, write migrations, optimize queries
+- **File Search** - Fast filename and content search with `fd` and `ripgrep`
 - And hundreds more!
 
-**Installing Skills**
+**Installing Additional Skills**
 
-To install a skill, you use the ClawHub CLI:
+To install more skills, use the ClawHub CLI:
 
 ```bash
 npm i -g clawhub
-clawhub install pdf
+clawhub search "github"      # Search for skills
+clawhub install github       # Install a skill
+clawhub update --all         # Update all installed skills
 ```
 
-Skills are automatically discovered and loaded into your OpenClaw instance.
+**Skills on Railway**
+
+For this Railway deployment, skills are pre-built into the Docker image at `/data/.openclaw/skills`. This means they're available immediately when your container starts - no additional installation needed!
+
+To add more skills to your Railway deployment:
+1. Install the skill locally using `clawhub install <skill-name>`
+2. Copy it to your project's `skills/` directory
+3. Commit and push - Railway will rebuild with the new skill included
 
 **Creating Custom Skills**
 
-You can also create your own skills! A skill is just a markdown file with specific structure that defines tools and knowledge. This makes it incredibly easy to extend OpenClaw for your specific needs - whether that's company-specific APIs, proprietary data sources, or custom workflows."
+You can also create your own skills! A skill is just a markdown file with specific structure that defines tools and knowledge. This makes it incredibly easy to extend OpenClaw for your specific needs - whether that's company-specific APIs, proprietary data sources, or custom workflows.
+
+The included **skill-creator** skill provides templates and guidance for building effective skills!"
 
 ---
 
@@ -514,23 +537,25 @@ For more help, check the documentation links in the description below."
 **[Visual: Summary of next steps]**
 
 **Host (on camera):**
-"Congratulations! You now have OpenClaw running on Railway. Here are some next steps you might want to explore:
+"Congratulations! You now have OpenClaw running on Railway with 8 pre-installed skills ready to use. Here are some next steps you might want to explore:
 
-1. **Configure messaging channels** - Add Discord, Telegram, Slack, WhatsApp, or Teams integration to chat with your AI agent wherever you already are
+1. **Try the pre-installed skills** - Your deployment includes gog, summarize, weather, skill-creator, daily-ai-news, market-news-analyst, pdf, and nano-pdf. Ask your AI to 'get today's weather', 'summarize this URL', or 'what's the latest AI news?'
 
-2. **Install Skills** - Explore ClawHub for useful add-ons. Start with the PDF skill for document processing, or browse the hundreds of community-built skills
+2. **Configure messaging channels** - Add Discord, Telegram, Slack, WhatsApp, or Teams integration to chat with your AI agent wherever you already are
 
-3. **Configure web search** - Enable Brave API for real-time web search capabilities, giving your AI access to current information
+3. **Install more Skills** - Explore ClawHub for hundreds of additional add-ons. Use `clawhub search <topic>` to find skills for your specific needs
 
-4. **Explore the Canvas** - Try out OpenClaw's visual workspace where the AI can create diagrams, mind maps, and visual content
+4. **Configure web search** - Enable Brave API for real-time web search capabilities, giving your AI access to current information
 
-5. **Set up voice commands** - If you're using the desktop app, enable Voice Wake and Talk Mode for hands-free voice conversations
+5. **Explore the Canvas** - Try out OpenClaw's visual workspace where the AI can create diagrams, mind maps, and visual content
 
-6. **Create custom skills** - Build your own specialized tools tailored to your workflow or business needs
+6. **Set up voice commands** - If you're using the desktop app, enable Voice Wake and Talk Mode for hands-free voice conversations
 
-7. **Connect companion apps** - Set up the iOS or Android nodes for mobile access, including camera and location features
+7. **Create custom skills** - Use the included skill-creator skill to build your own specialized tools tailored to your workflow or business needs
 
-8. **Join the community** - Check out the OpenClaw Discord and GitHub discussions to share your creations and learn from other users
+8. **Connect companion apps** - Set up the iOS or Android nodes for mobile access, including camera and location features
+
+9. **Join the community** - Check out the OpenClaw Discord and GitHub discussions to share your creations and learn from other users
 
 All the links you need are in the description below."
 
@@ -666,7 +691,11 @@ Template Deployment
 
 ---
 
-**Version:** 1.5
+**Version:** 1.6
 **Created:** 2026-02-10
-**Updated:** 2026-02-16
+**Updated:** 2026-02-18
 **Based on:** learning-openclaw-tutorial.md (v1.0)
+
+**Changelog:**
+- v1.6 (2026-02-18): Added documentation for 8 pre-installed ClawHub skills (gog, summarize, weather, skill-creator, daily-ai-news, market-news-analyst, pdf, nano-pdf)
+- v1.5 (2026-02-16): Initial release
