@@ -84,7 +84,7 @@ RUN python3 -m venv /opt/pdf-venv
 # Install PDF libraries in the virtual environment
 RUN /opt/pdf-venv/bin/pip install --no-cache-dir pypdf pdfplumber reportlab && \
     apt-get update && \
-    DEBIAN FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     poppler-utils && \
     rm -rf /var/lib/apt/lists/*
 
