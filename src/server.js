@@ -257,6 +257,42 @@ function requireSetupAuth(req, res, next) {
   return next();
 }
 
+// Decode base64-encoded credentials on startup
+// This allows secure credential storage via environment variables
+function decodeCredentialsFromEnv() {
+  const googleSecretBase64 = process.env.GOOGLE_CLIENT_SECRET_BASE64;
+
+  if (!googleSecretBase64) {
+    console.log("[credentials] GOOGLE_CLIENT_SECRET_BASE64 not set, skipping Google credentials setup");
+    return;
+  }
+
+  try {
+    // Create credentials directory
+    const credentialsDir = path.join(STATE_DIR, "credentials");
+    fs.mkdirSync(credentialsDir, { recursive: true });
+
+    // Decode base64 and write to file
+    const decoded = Buffer.from(googleSecretBase64, "base64").toString("utf8");
+    const credentialsPath = path.join(credentialsDir, "client_secret.json");
+
+    // Validate it's valid JSON before writing
+    JSON.parse(decoded); // Will throw if invalid
+
+    fs.writeFileSync(credentialsPath, decoded, { mode: 0o600 });
+    console.log(`[credentials] ✅ Successfully decoded and wrote Google credentials to ${credentialsPath}`);
+
+    // Set environment variable for gog skill to find it
+    process.env.GOOGLE_CREDENTIALS_PATH = credentialsPath;
+  } catch (err) {
+    console.error(`[credentials] ❌ Failed to decode Google credentials: ${err.message}`);
+    console.error(`[credentials] The GOOGLE_CLIENT_SECRET_BASE64 environment variable may be invalid`);
+  }
+}
+
+// Decode credentials on startup
+decodeCredentialsFromEnv();
+
 const app = express();
 app.disable("x-powered-by");
 app.use(express.json({ limit: "1mb" }));
