@@ -72,7 +72,9 @@ function sleep(ms) {
 }
 
 async function waitForGatewayReady(opts = {}) {
-  const timeoutMs = opts.timeoutMs ?? 20_000;
+  // Railway may need more time for cold starts (especially first deployment)
+  // Default to 90 seconds for Railway, allow override via opts
+  const timeoutMs = opts.timeoutMs ?? 90_000;
   const start = Date.now();
   const endpoints = ["/openclaw", "/openclaw", "/", "/health"];
   
@@ -205,7 +207,8 @@ async function ensureGatewayRunning() {
   if (!gatewayStarting) {
     gatewayStarting = (async () => {
       await startGateway();
-      const ready = await waitForGatewayReady({ timeoutMs: 20_000 });
+      // Use longer timeout for Railway cold starts (90 seconds)
+      const ready = await waitForGatewayReady({ timeoutMs: 90_000 });
       if (!ready) {
         throw new Error("Gateway did not become ready in time");
       }
