@@ -3,7 +3,8 @@
 ## Overview
 
 OpenClaw serves as a proactive personal assistant for patients, helping them:
-- Schedule doctor appointments
+- **Auto-sync appointments from health portals** - Log into patient health portals and automatically create Google Calendar events
+- Schedule doctor appointments manually
 - Coordinate with family members
 - Manage medicine reminders
 - Store and organize medical documents
@@ -80,6 +81,14 @@ graph TB
         end
     end
 
+    subgraph "Health Portals"
+        HC["Health Portal Connector"]
+        MYC["MyChart / Epic"]
+        CER["Cerner Health"]
+        ATH["AthenaHealth"]
+        HP["Health Portal APIs"]
+    end
+
     subgraph "Google Workspace API"
         CAL["Google Calendar - Appointments and Medicine"]
         DRV["Google Drive - Medical Documents"]
@@ -96,6 +105,14 @@ graph TB
     OC --> RE
     OC --> CE
 
+    OC --> HC
+    HC -->|Login & Fetch| MYC
+    HC -->|Login & Fetch| CER
+    HC -->|Login & Fetch| ATH
+    HC -->|Login & Fetch| HP
+    HC -->|Parse & Sync| SE
+    SE -->|Create Events| CAL
+
     OC --> GOG
     GOG --> CAL
     GOG --> DRV
@@ -105,6 +122,7 @@ graph TB
     OC <--> VOL
     CRE -.->|Base64 Decode| ST
     ST -.->|OAuth Token| GOG
+    CRE -.->|Decrypt Portal Creds| HC
 
     SE -.->|Create Events| CAL
     RE -.->|Recurring Events| CAL
@@ -115,11 +133,15 @@ graph TB
     style TG fill:#0088cc,stroke:#006699,color:#fff
     style OC fill:#7c3aed,stroke:#5b21b6,color:#fff
     style GOG fill:#4285f4,stroke:#3367d6,color:#fff
+    style HC fill:#ea4335,stroke:#d33426,color:#fff
     style CAL fill:#34a853,stroke:#2d9247,color:#fff
     style DRV fill:#fbbc05,stroke:#f9ab00,color:#000
     style SH fill:#34a853,stroke:#2d9247,color:#fff
     style GML fill:#ea4335,stroke:#d33426,color:#fff
     style VOL fill:#f59e0b,stroke:#d97706,color:#fff
+    style MYC fill:#005eb8,stroke:#004a94,color:#fff
+    style CER fill:#0066cc,stroke:#004d99,color:#fff
+    style ATH fill:#00a4e4,stroke:#0084b8,color:#fff
 ```
 
 ### Data Flow Diagram
@@ -130,9 +152,10 @@ sequenceDiagram
     participant TG as Telegram Bot
     participant OC as OpenClaw
     participant G as Google APIs
+    participant HP as Health Portal
     participant F as Family Members
 
-    Note over P,F: Appointment Scheduling Flow
+    Note over P,F: Manual Appointment Scheduling Flow
 
     P->>TG: "Schedule Dr. Smith on March 5th at 2pm"
     TG->>OC: Webhook with user message
@@ -159,6 +182,23 @@ sequenceDiagram
         TG->>OC: User response
         OC->>G: Append to Sheets log
         OC-->>TG: ✅ Logged as taken
+    end
+
+    Note over P,F: Health Portal Auto-Sync Flow
+
+    loop Hourly sync
+        OC->>HP: Login with credentials
+        HP-->>OC: Authentication success
+        OC->>HP: GET /appointments/upcoming
+        HP-->>OC: 12 appointments found
+        OC->>G: GET /calendars/primary/events
+        G-->>OC: 10 existing events
+        OC->>OC: Compare & find 2 new appointments
+        OC->>G: POST /calendars/primary/events (x2)
+        G-->>OC: 2 events created
+        OC->>G: Send invites to family members
+        G-->>F: 2 email invitations
+        OC->>TG: "Found 2 new appointments from portal"
     end
 ```
 
@@ -372,6 +412,260 @@ Next appointment: September 5, 2026
 
 ---
 
+### 5\ufe0f\u20e3 Health Portal Auto-Sync
+
+OpenClaw can automatically log into patient health portals (MyChart, Epic, Cerner, etc.) and sync appointments to Google Calendar.
+
+#### Setup Configuration
+
+**Input via Telegram:**
+```
+User: "Set up health portal sync for MyChart"
+
+OpenClaw:
+"I'll help you set up health portal sync.
+
+Please provide:
+1. Portal URL: https://mychart.example.com
+2. Username: john.doe@email.com
+3. Password: [encrypted input]
+4. Family members to invite: spouse@email.com, daughter@email.com
+
+Reply with details or type 'cancel' to exit."
+```
+
+**OpenClaw Actions:**
+```python
+# Store encrypted credentials
+health_portal_config = {
+    "portal_url": "https://mychart.example.com",
+    "portal_type": "MyChart",  # or Epic, Cerner, Athena, etc.
+    "username": "john.doe@email.com",
+    "password": "encrypted_password_here",
+    "family_attendees": [
+        "spouse@email.com",
+        "daughter@email.com"
+    ],
+    "sync_frequency": "hourly",  # Check for new appointments
+    "auto_invite_family": True,
+    "reminder_minutes": [1440, 60, 30]  # 1 day, 1 hour, 30 min
+}
+```
+
+**Telegram Response:**
+```
+✅ Health portal sync configured!
+
+🏥 Portal: MyChart (https://mychart.example.com)
+🔐 Credentials: Encrypted and stored
+👥 Family attendees: spouse@email.com, daughter@email.com
+🔄 Sync frequency: Every hour
+📅 Upcoming appointments will be synced automatically
+
+Next sync: Starting now...
+```
+
+#### Automatic Sync Flow
+
+**Hourly Background Job:**
+```python
+def sync_health_portal_appointments():
+    # 1. Login to health portal
+    session = login_to_portal(
+        url=health_portal_config["portal_url"],
+        username=health_portal_config["username"],
+        password=decrypt(health_portal_config["password"])
+    )
+
+    # 2. Fetch upcoming appointments
+    portal_appointments = get_appointments(
+        session=session,
+        start_date=today,
+        end_date=today + timedelta(days=180)
+    )
+
+    # 3. Check which appointments are new
+    existing_events = get_google_calendar_events()
+    new_appointments = find_new_appointments(
+        portal_appointments,
+        existing_events
+    )
+
+    # 4. Create Google Calendar events for new appointments
+    for appointment in new_appointments:
+        event = {
+            "summary": f"🏥 {appointment['doctor']} - {appointment['type']}",
+            "description": format_appointment_description(appointment),
+            "start": {
+                "dateTime": appointment["start_time"],
+                "timeZone": appointment["timezone"]
+            },
+            "end": {
+                "dateTime": appointment["end_time"],
+                "timeZone": appointment["timezone"]
+            },
+            "location": appointment["location"],
+            "attendees": build_attendee_list(
+                patient_email,
+                health_portal_config["family_attendees"]
+            ),
+            "reminders": {
+                "overrides": [
+                    {"method": "email", "minutes": 1440},  # 1 day
+                    {"method": "email", "minutes": 60},    # 1 hour
+                    {"method": "email", "minutes": 30}     # 30 min
+                ]
+            },
+            "extendedProperties": {
+                "private": {
+                    "portal_synced": "true",
+                    "portal_appointment_id": appointment["id"],
+                    "portal_url": appointment["portal_url"]
+                }
+            }
+        }
+
+        created_event = create_calendar_event(event)
+        log_to_sheets(created_event, appointment)
+
+    # 5. Send summary notification
+    if new_appointments:
+        send_telegram_notification(new_appointments)
+```
+
+#### Appointment Description Format
+
+```python
+def format_appointment_description(appointment):
+    return f"""
+🏥 Appointment Details
+
+Provider: {appointment['doctor']}
+Department: {appointment['department']}
+Type: {appointment['visit_type']}
+
+Location:
+{appointment['facility_name']}
+{appointment['address']}
+{appointment['phone']}
+
+📋 Instructions:
+{appointment['prep_instructions']}
+
+💊 Medications to Bring:
+{appointment['medication_list']}
+
+📝 Notes:
+{appointment['patient_notes']}
+
+---
+🤖 Auto-synced from {health_portal_config['portal_type']} Portal
+View original: {appointment['portal_url']}
+"""
+```
+
+#### Telegram Notification for New Appointments
+
+```
+🔔 New Appointment(s) Synced from Health Portal
+
+Found 2 new appointment(s):
+
+━━━━━━━━━━━━━━━━━━━━
+
+1️⃣ March 15, 2026
+   🕐 10:00am - 11:00am EST
+   👨‍⚕️ Dr. Sarah Johnson
+   🏥 City Medical Center
+   📄 Annual Physical
+   📍 123 Healthcare Blvd, Suite 200
+
+   👥 Invited: spouse@email.com, daughter@email.com
+   ⏰ Reminders: 1 day, 1 hour, 30 min before
+
+━━━━━━━━━━━━━━━━━━━━
+
+2️⃣ April 8, 2026
+   🕐 2:30pm - 3:30pm EST
+   👨‍⚕️ Dr. Michael Chen
+   🏥 City Medical Center
+   📄 Cardiology Follow-up
+   📍 123 Healthcare Blvd, Suite 150
+
+   👥 Invited: spouse@email.com, daughter@email.com
+   ⏰ Reminders: 1 day, 1 hour, 30 min before
+
+━━━━━━━━━━━━━━━━━━━━
+
+All appointments added to Google Calendar
+Family members will receive calendar invites
+```
+
+#### Manual Sync Command
+
+**Trigger sync on demand:**
+```
+User: "Sync my health portal now"
+
+OpenClaw:
+"🔄 Syncing with MyChart portal...
+
+✅ Logged in successfully
+✅ Fetched 12 upcoming appointments
+✅ 2 new appointments found
+✅ Created 2 Google Calendar events
+✅ Invited 2 family members
+
+📅 Total calendar events: 14
+Next sync: 1 hour"
+
+User: "Show me my appointments"
+
+OpenClaw:
+"📅 Upcoming Appointments (from health portal):
+
+March 15 - Dr. Johnson (Annual Physical) - 10:00am
+March 28 - Lab Work - 8:00am
+April 8 - Dr. Chen (Cardiology) - 2:30pm
+April 22 - Dr. Smith (Follow-up) - 3:00pm
+..."
+```
+
+#### Health Portal Status Check
+
+```
+User: "Check health portal status"
+
+OpenClaw:
+"🏥 Health Portal Sync Status
+
+Portal: MyChart
+URL: https://mychart.example.com
+Status: ✅ Connected
+Last sync: 15 minutes ago
+Next sync: 45 minutes
+
+Appointments synced: 14
+New this week: 2
+Family members notified: Yes
+
+Credentials: ✅ Secure (encrypted)
+Auto-sync: ✅ Active (hourly)"
+```
+
+#### Supported Health Portal Systems
+
+| Portal System | Authentication | Appointment Sync |
+|---------------|----------------|------------------|
+| **Epic MyChart** | Username/Password | ✅ Full support |
+| **Cerner Power** | Username/Password | ✅ Full support |
+| **AthenaHealth** | Username/Password | ✅ Full support |
+| **Allscripts** | Username/Password | ✅ Full support |
+| **eClinicalWorks** | Username/Password | ⚠️ Requires testing |
+| **Custom portals** | OAuth 2.0 | 🔧 Custom adapter needed |
+
+---
+
 ## Google Services Integration
 
 ### Calendar
@@ -534,6 +828,106 @@ def medicine_adherence():
 ---
 
 ## Technical Requirements
+
+### Health Portal Integration
+
+#### Portal Authentication
+```javascript
+// Encrypted credential storage
+const healthPortalConfig = {
+  portalUrl: "https://mychart.example.com",
+  portalType: "MyChart",  // Epic, Cerner, Athena, etc.
+  username: "patient@email.com",
+  password: "encrypted:AES256-GCM:base64data",
+  familyAttendees: ["spouse@email.com", "daughter@email.com"],
+  syncFrequency: "hourly",
+  autoInviteFamily: true,
+  reminderMinutes: [1440, 60, 30]  // 1 day, 1 hour, 30 min
+};
+```
+
+#### Portal Scraping/API Configuration
+```javascript
+// Portal-specific configurations
+const portalAdapters = {
+  MyChart: {
+    loginUrl: "/login",
+    appointmentsUrl: "/appointments/upcoming",
+    authentication: "form-post",
+    sessionCookie: "JSESSIONID",
+    appointmentParser: "mychart-parser"
+  },
+  Cerner: {
+    loginUrl: "/authentication/login",
+    appointmentsUrl: "/api/appointments",
+    authentication: "oauth2",
+    appointmentParser: "cerner-parser"
+  },
+  AthenaHealth: {
+    loginUrl: "/login",
+    appointmentsUrl: "/appointments",
+    authentication: "form-post",
+    appointmentParser: "athena-parser"
+  }
+};
+```
+
+#### Appointment Data Structure
+```javascript
+// Normalized appointment from portal
+const portalAppointment = {
+  id: "apt-12345678",
+  portalType: "MyChart",
+  doctor: "Dr. Sarah Johnson",
+  department: "Cardiology",
+  type: "Follow-up Visit",
+  startTime: "2026-03-15T10:00:00-05:00",
+  endTime: "2026-03-15T11:00:00-05:00",
+  timezone: "America/New_York",
+  location: {
+    facilityName: "City Medical Center",
+    address: "123 Healthcare Blvd, Suite 200",
+    phone: "+1-555-123-4567"
+  },
+  prepInstructions: "Fast for 12 hours before appointment",
+  medicationList: "Blood pressure medication, Diabetes medication",
+  patientNotes: "Discuss recent test results",
+  portalUrl: "https://mychart.example.com/appointments/12345678"
+};
+```
+
+#### Encryption Requirements
+```javascript
+// Password encryption using AES-256-GCM
+const crypto = require('crypto');
+
+function encryptPassword(password, key) {
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  let encrypted = cipher.update(password, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const authTag = cipher.getAuthTag();
+  return {
+    encrypted: encrypted,
+    iv: iv.toString('hex'),
+    authTag: authTag.toString('hex'),
+    algorithm: 'aes-256-gcm'
+  };
+}
+```
+
+#### Sync Schedule Configuration
+```javascript
+// Cron job for hourly sync
+const syncSchedule = {
+  enabled: true,
+  frequency: "0 * * * *",  // Every hour
+  timezone: "America/New_York",
+  retryAttempts: 3,
+  retryDelay: 5000,  // 5 seconds
+  timeout: 30000  // 30 seconds
+};
+```
 
 ### OAuth Scopes
 ```json
@@ -702,17 +1096,32 @@ Total today: 2/2 medicines taken \U0001f4aa"
 | Google Drive | \u23f3 Needed | Require OAuth scope |
 | Google Sheets | \u23f3 Needed | Require OAuth scope |
 | Proactive Check-ins | \u2705 Ready | Can implement now |
+| Health Portal Sync | \ud83d\udd27 Planned | Requires custom adapter |
+| MyChart Integration | \ud83d\udd27 Planned | Requires authentication module |
+| Cerner Integration | \ud83d\udd27 Planned | Requires API access |
+| Credential Encryption | \ud83d\udd27 Planned | AES-256-GCM required |
 
 ---
 
 ## Next Steps
 
+### Phase 1: Core Google Integration
 1. \u2705 **Add Drive and Sheets OAuth scopes** - Need to re-authorize
 2. \u2705 **Create Google Sheets** - Set up appointment and medicine log sheets
 3. \u2705 **Create Drive folders** - Organize medical documents
 4. \u2705 **Implement Telegram commands** - `/schedule`, `/medicine`, `/appointments`
 5. \u2705 **Set up proactive checks** - Daily health check-in system
 6. \u2705 **Test end-to-end** - Schedule test appointment
+
+### Phase 2: Health Portal Integration
+1. \ud83d\udd27 **Implement encryption module** - AES-256-GCM for portal credentials
+2. \ud83d\udd27 **Create portal adapter interface** - Abstract layer for different portals
+3. \ud83d\udd27 **Build MyChart scraper** - Appointment fetching from MyChart
+4. \ud83d\udd27 **Implement sync scheduler** - Hourly cron job for portal polling
+5. \ud83d\udd27 **Add conflict detection** - Prevent duplicate calendar events
+6. \ud83d\udd27 **Create setup wizard** - Portal configuration via Telegram
+7. \ud83d\udd27 **Add notification system** - New appointment alerts to family
+8. \ud83d\udd27 **Test with sandbox portal** - Validate sync flow
 
 ---
 
