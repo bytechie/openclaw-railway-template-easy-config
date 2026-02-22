@@ -149,7 +149,7 @@ async function startGateway() {
   console.log(`[gateway] ========== TOKEN SYNC COMPLETE ==========`);
 
   // Set gateway.trustedProxies in openclaw.json directly
-  // Using "*" to trust all proxy headers (required for Railway deployment)
+  // Using array format (required by OpenClaw) with Railway's proxy ranges
   console.log(`[gateway] Setting gateway.trustedProxies in openclaw.json...`);
   try {
     const configPath = path.join(STATE_DIR, "openclaw.json");
@@ -158,13 +158,19 @@ async function startGateway() {
     // Ensure gateway object exists
     if (!config.gateway) config.gateway = {};
 
-    // Set trustedProxies to trust all proxies (needed for Railway)
-    // Railway uses CGNAT range 100.64.0.0/10 which is not covered by "linklocal"
-    config.gateway.trustedProxies = "*";
+    // Set trustedProxies to trust Railway's proxy (as array)
+    // Railway uses CGNAT range 100.64.0.0/10 plus standard proxy ranges
+    config.gateway.trustedProxies = [
+      "100.64.0.0/10",  // Railway CGNAT range
+      "10.0.0.0/8",     // Private network
+      "172.16.0.0/12",  // Private network
+      "192.168.0.0/16", // Private network
+      "127.0.0.1",      // Localhost
+    ];
 
     // Write back the updated config
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-    console.log(`[gateway] ✓ Set gateway.trustedProxies = * in openclaw.json`);
+    console.log(`[gateway] ✓ Set gateway.trustedProxies array in openclaw.json`);
   } catch (err) {
     console.error(`[gateway] Failed to set trustedProxies: ${err.message}`);
   }
@@ -785,7 +791,7 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
       );
 
       // Set gateway.trustedProxies in openclaw.json directly for Railway
-      // Using "*" to trust all proxy headers (required for Railway deployment)
+      // Using array format (required by OpenClaw) with Railway's proxy ranges
       console.log(`[onboard] Setting gateway.trustedProxies in openclaw.json...`);
       try {
         const configPath = path.join(STATE_DIR, "openclaw.json");
@@ -794,13 +800,20 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
         // Ensure gateway object exists
         if (!config.gateway) config.gateway = {};
 
-        // Set trustedProxies to trust all proxies (needed for Railway)
-        config.gateway.trustedProxies = "*";
+        // Set trustedProxies to trust Railway's proxy (as array)
+        // Railway uses CGNAT range 100.64.0.0/10 plus standard proxy ranges
+        config.gateway.trustedProxies = [
+          "100.64.0.0/10",  // Railway CGNAT range
+          "10.0.0.0/8",     // Private network
+          "172.16.0.0/12",  // Private network
+          "192.168.0.0/16", // Private network
+          "127.0.0.1",      // Localhost
+        ];
 
         // Write back the updated config
         fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-        console.log(`[onboard] ✓ Set gateway.trustedProxies = * in openclaw.json`);
-        extra += `\n[onboard] ✓ Set gateway.trustedProxies = * for Railway proxy\n`;
+        console.log(`[onboard] ✓ Set gateway.trustedProxies array in openclaw.json`);
+        extra += `\n[onboard] ✓ Set gateway.trustedProxies array for Railway proxy\n`;
       } catch (err) {
         console.error(`[onboard] Failed to set trustedProxies: ${err.message}`);
         extra += `\n[WARNING] Failed to set trustedProxies: ${err.message}\n`;
