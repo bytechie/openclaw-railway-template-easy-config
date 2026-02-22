@@ -159,7 +159,6 @@ async function startGateway() {
     "token",
     "--token",
     OPENCLAW_GATEWAY_TOKEN,
-    "--trust-proxy",
   ];
 
   // Set gateway host environment variable for Railway
@@ -173,6 +172,8 @@ async function startGateway() {
     ...process.env,
     OPENCLAW_STATE_DIR: STATE_DIR,
     OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
+    // Set TRUST_PROXY environment variable for Railway
+    TRUST_PROXY: "true",
   };
 
   // Set GATEWAY_HOST environment variable for Railway if available
