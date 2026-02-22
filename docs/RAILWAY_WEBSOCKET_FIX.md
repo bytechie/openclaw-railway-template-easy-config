@@ -119,60 +119,62 @@ await runCmd(OPENCLAW_NODE, clawArgs([
 - Auto-detection only works after first request
 - Wildcard fallback less secure
 
-### v1.1.4: Normalize X-Forwarded-For (Current) ✅
+### v1.1.5: Override Host Header (Current) ✅
 
-**Tag:** `v1.1.4-normalize-x-forwarded-for`
+**Tag:** `v1.1.5-override-host-header`
 
-**Approach:** Replace Railway's `X-Forwarded-For` header with `127.0.0.1` (the wrapper's IP) instead of stripping it.
+**Approach:** Replace Railway's `X-Forwarded-For` header with `127.0.0.1` AND override the `Host` header to `localhost:18789`.
 
 **Why This Was Needed:**
 
-OpenClaw's gateway REQUIRES the `X-Forwarded-For` header to detect trusted proxy connections. The v1.1.3 approach of stripping the header caused:
+Even with v1.1.4 (setting `X-Forwarded-For: 127.0.0.1`), the gateway was still treating connections as remote because the `Host` header contained the Railway domain:
 
 ```
 [ws] Loopback connection with non-local Host header. Treating it as remote.
-If you're behind a reverse proxy, set gateway.trustedProxies and forward X-Forwarded-For/X-Real-IP.
-fwd=n/a  ← X-Forwarded-For is missing!
+Host: openclaw-railway-template-easy-config-production-d15d.up.railway.app
 ```
 
-Railway adds:
-```
-X-Forwarded-For: 99.229.22.196, 157.52.64.23  ← Real client IPs (not trusted)
-```
+The gateway requires BOTH:
+1. Connection from trusted IP (`127.0.0.1`) ✓
+2. Local `Host` header (`localhost:18789`) ← Missing in v1.1.4!
 
-The gateway sees:
-- Connection from: `127.0.0.1` (wrapper) ✓ trusted
-- But `X-Forwarded-For` contains: `99.229.22.196` ✗ NOT trusted
+Without a local Host header, the gateway treats the connection as remote and requires device pairing, even with `allowInsecureAuth=true`.
 
-**Solution:** Replace `X-Forwarded-For` with `127.0.0.1` so the gateway recognizes it as a trusted proxy:
+**Solution:** Override `Host` to `localhost:18789` so the gateway treats the connection as local:
 
 ```javascript
 function normalizeProxyHeaders(req, res, next) {
   // Replace X-Forwarded-For with the wrapper's IP (127.0.0.1)
-  // This allows the gateway to recognize it as a trusted proxy connection
   req.headers["x-forwarded-for"] = "127.0.0.1";
 
-  // Remove other proxy headers that we don't need
+  // Override Host to localhost so gateway treats this as a local connection
+  // Without this, the gateway sees the Railway domain and treats it as remote
+  req.headers["host"] = `localhost:${INTERNAL_GATEWAY_PORT}`;
+
+  // Remove other proxy headers...
   delete req.headers["x-forwarded-host"];
-  delete req.headers["x-forwarded-proto"];
-  delete req.headers["x-real-ip"];
-  delete req.headers["forwarded"];
-  delete req.headers["x-railway"];
-  delete req.headers["x-railway-request-id"];
-  delete req.headers["x-railway-edge"];
-  // Don't modify Host/Origin - handled by allowedOrigins
-  next();
+  // ...
 }
 ```
 
 **Pros:**
-- ✅ Gateway recognizes the connection as from a trusted proxy
+- ✅ Gateway treats connection as local (no "pairing required")
+- ✅ Works with allowInsecureAuth=true
 - ✅ No "pairing required" errors (allowInsecureAuth works)
 - ✅ Works with allowedOrigins for origin validation
-- ✅ No Host/Origin header manipulation (security best practice)
+- ✅ No "pairing required" errors
+- ✅ Works with allowInsecureAuth=true
 
 **Cons:**
-- Header manipulation (but only proxy headers, not Host/Origin)
+- Header manipulation (including Host header)
+
+### v1.1.4: Normalize X-Forwarded-For (Superseded) ⚠️
+
+**Tag:** `v1.1.4-normalize-x-forwarded-for`
+
+**Issue:** Setting `X-Forwarded-For: 127.0.0.1` wasn't enough - the gateway still saw non-local Host header and treated connections as remote, causing "pairing required" errors.
+
+**Use v1.1.5 instead.**
 
 ### v1.1.3: Strip Railway Proxy Headers (Superseded) ⚠️
 
@@ -180,7 +182,7 @@ function normalizeProxyHeaders(req, res, next) {
 
 **Issue:** Stripping `X-Forwarded-For` caused the gateway to not recognize trusted proxy connections, resulting in "fwd=n/a" and "pairing required" errors.
 
-**Use v1.1.4 instead.**
+**Use v1.1.5 instead.**
 
 **Tag:** `v1.1.1-railway-public-domain`
 
@@ -213,23 +215,25 @@ function getPublicUrl() {
 
 ---
 
-## Current Implementation (v1.1.4)
+## Current Implementation (v1.1.5)
 
-The final solution combines **three complementary approaches**:
+The final solution combines **four complementary approaches**:
 
 1. **allowedOrigins** - Allows Railway public domain for WebSocket connections
 2. **trustedProxies** - Trusts 127.0.0.1 (the wrapper) as a proxy
 3. **Normalize X-Forwarded-For** - Replaces Railway's proxy header with 127.0.0.1
+4. **Override Host Header** - Sets Host to localhost:18789 for local connection treatment
 
-### Why All Three Are Needed
+### Why All Four Are Needed
 
 | Component | Purpose | What Happens Without It |
 |-----------|---------|-------------------------|
 | `allowedOrigins` | Validate WebSocket origin | "Origin not allowed" (code 1008) |
 | `trustedProxies` | Trust 127.0.0.1 as proxy | "Proxy headers detected from untrusted address" |
 | `Normalize X-Forwarded-For` | Replace with 127.0.0.1 | Gateway sees fwd=n/a, treats connection as remote |
+| `Override Host Header` | Set Host to localhost | Gateway sees Railway domain, treats as remote, requires pairing |
 
-## Current Implementation (v1.1.3 - superseded by v1.1.4)
+## Current Implementation (v1.1.4 - superseded by v1.1.5)
 
 ### Architecture
 
@@ -340,7 +344,8 @@ No configuration needed - the template auto-detects `localhost` URLs.
 
 | Tag | Approach | Use Case |
 |-----|----------|----------|
-| `v1.1.4-normalize-x-forwarded-for` | ✅ **Current** - Replace X-Forwarded-For with 127.0.0.1 + allowedOrigins + trustedProxies | Production, recommended |
+| `v1.1.5-override-host-header` | ✅ **Current** - Override Host header + X-Forwarded-For normalization + allowedOrigins + trustedProxies | Production, recommended |
+| `v1.1.4-normalize-x-forwarded-for` | ⚠️ Incomplete - Only normalizes X-Forwarded-For (missing Host override) | Don't use |
 | `v1.1.3-strip-proxy-headers` | ⚠️ Broken - Strips X-Forwarded-For (causes fwd=n/a error) | Don't use |
 | `v1.1.2-trusted-proxies` | Incomplete - Only allowedOrigins + trustedProxies (missing header normalization) | Don't use |
 | `v1.1.1-railway-public-domain` | Incomplete - Only allowedOrigins (missing trustedProxies + header normalization) | Don't use |
@@ -396,8 +401,10 @@ The Express wrapper normalizes Railway's proxy headers before requests reach the
 ```javascript
 function normalizeProxyHeaders(req, res, next) {
   // Replace X-Forwarded-For with the wrapper's IP (127.0.0.1)
-  // This allows the gateway to recognize it as a trusted proxy connection
   req.headers["x-forwarded-for"] = "127.0.0.1";
+
+  // Override Host to localhost so gateway treats this as a local connection
+  req.headers["host"] = `localhost:${INTERNAL_GATEWAY_PORT}`;
 
   // Remove other proxy headers that we don't need
   delete req.headers["x-forwarded-host"];
@@ -411,7 +418,7 @@ function normalizeProxyHeaders(req, res, next) {
 }
 ```
 
-**Important:** We DON'T modify `Host` or `Origin` headers - those are properly handled by OpenClaw's `allowedOrigins` configuration. We replace `X-Forwarded-For` with `127.0.0.1` (the wrapper's IP) so the gateway recognizes the connection as from a trusted proxy.
+**Important:** We DO modify the `Host` header to `localhost:18789` so the gateway treats the connection as local. The `Origin` header is NOT modified - it's handled by OpenClaw's `allowedOrigins` configuration. Without overriding `Host`, the gateway sees the Railway domain and treats the connection as remote, requiring device pairing.
 
 ```json
 {
@@ -531,7 +538,8 @@ The origin isn't in `allowedOrigins`. Check:
 
 | Version | Date | Changes |
 |---------|------|---------|
-| v1.1.4 | 2026-02-22 | Replace X-Forwarded-For with 127.0.0.1 (fixes "pairing required" error) |
+| v1.1.5 | 2026-02-22 | Override Host header to localhost (fixes "pairing required" with non-local Host) |
+| v1.1.4 | 2026-02-22 | Replace X-Forwarded-For with 127.0.0.1 - INCOMPLETE, still has pairing issue |
 | v1.1.3 | 2025-02-22 | Strip Railway proxy headers (X-Forwarded-*) - BROKEN, causes fwd=n/a |
 | v1.1.2 | 2025-02-22 | Configure gateway.trustedProxies to trust wrapper |
 | v1.1.1 | 2025-02-22 | Use `RAILWAY_PUBLIC_DOMAIN` for zero-config setup |
@@ -540,5 +548,5 @@ The origin isn't in `allowedOrigins`. Check:
 
 ---
 
-**Document Version:** 1.1.4
+**Document Version:** 1.1.5
 **Last Updated:** 2026-02-22

@@ -1184,6 +1184,11 @@ function normalizeProxyHeaders(req, res, next) {
   // This allows the gateway to recognize it as a trusted proxy connection
   req.headers["x-forwarded-for"] = "127.0.0.1";
 
+  // Override Host to localhost so gateway treats this as a local connection
+  // Without this, the gateway sees the Railway domain and treats it as remote
+  // which causes "pairing required" errors even with allowInsecureAuth=true
+  req.headers["host"] = `localhost:${INTERNAL_GATEWAY_PORT}`;
+
   // Remove other proxy headers that we don't need
   delete req.headers["x-forwarded-host"];
   delete req.headers["x-forwarded-proto"];
@@ -1192,8 +1197,7 @@ function normalizeProxyHeaders(req, res, next) {
   delete req.headers["x-railway"];
   delete req.headers["x-railway-request-id"];
   delete req.headers["x-railway-edge"];
-  // Note: We DON'T modify Host or Origin headers - those are handled by
-  // allowedOrigins configuration in OpenClaw
+  // Note: We DON'T modify Origin header - it's handled by allowedOrigins
   next();
 }
 
