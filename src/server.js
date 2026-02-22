@@ -1189,6 +1189,12 @@ function normalizeProxyHeaders(req, res, next) {
   // which causes "pairing required" errors even with allowInsecureAuth=true
   req.headers["host"] = `localhost:${INTERNAL_GATEWAY_PORT}`;
 
+  // Override Origin to match the Host header
+  // Even with allowedOrigins configured, OpenClaw's gateway still treats
+  // non-localhost origins as "remote" and requires device pairing.
+  // By setting Origin to localhost, the gateway treats the connection as local.
+  req.headers["origin"] = `http://localhost:${INTERNAL_GATEWAY_PORT}`;
+
   // Remove other proxy headers that we don't need
   delete req.headers["x-forwarded-host"];
   delete req.headers["x-forwarded-proto"];
@@ -1197,7 +1203,6 @@ function normalizeProxyHeaders(req, res, next) {
   delete req.headers["x-railway"];
   delete req.headers["x-railway-request-id"];
   delete req.headers["x-railway-edge"];
-  // Note: We DON'T modify Origin header - it's handled by allowedOrigins
   next();
 }
 

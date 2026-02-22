@@ -119,28 +119,30 @@ await runCmd(OPENCLAW_NODE, clawArgs([
 - Auto-detection only works after first request
 - Wildcard fallback less secure
 
-### v1.1.5: Override Host Header (Current) ✅
+### v1.1.6: Override Both Host AND Origin Headers (Current) ✅
 
-**Tag:** `v1.1.5-override-host-header`
+**Tag:** `v1.1.6-override-both-headers`
 
-**Approach:** Replace Railway's `X-Forwarded-For` header with `127.0.0.1` AND override the `Host` header to `localhost:18789`.
+**Approach:** Replace Railway's `X-Forwarded-For` header with `127.0.0.1` AND override BOTH the `Host` header AND the `Origin` header to localhost.
 
 **Why This Was Needed:**
 
-Even with v1.1.4 (setting `X-Forwarded-For: 127.0.0.1`), the gateway was still treating connections as remote because the `Host` header contained the Railway domain:
+Even with v1.1.5 (setting `Host: localhost:18789`), the gateway was STILL requiring pairing because the `Origin` header contained the Railway domain:
 
 ```
-[ws] Loopback connection with non-local Host header. Treating it as remote.
-Host: openclaw-railway-template-easy-config-production-d15d.up.railway.app
+remote=127.0.0.1 fwd=127.0.0.1 host=localhost:18789
+origin=https://openclaw-railway-template-easy-config-production-d15d.up.railway.app
+code=1008 reason=pairing required
 ```
 
-The gateway requires BOTH:
+The gateway requires ALL THREE:
 1. Connection from trusted IP (`127.0.0.1`) ✓
-2. Local `Host` header (`localhost:18789`) ← Missing in v1.1.4!
+2. Local `Host` header (`localhost:18789`) ✓
+3. Local `Origin` header (`http://localhost:18789`) ← Missing in v1.1.5!
 
-Without a local Host header, the gateway treats the connection as remote and requires device pairing, even with `allowInsecureAuth=true`.
+Even with `allowInsecureAuth=true` and `allowedOrigins` configured to include the Railway domain, OpenClaw's gateway still treats non-localhost origins as "remote" and requires device pairing.
 
-**Solution:** Override `Host` to `localhost:18789` so the gateway treats the connection as local:
+**Solution:** Override BOTH `Host` AND `Origin` to localhost so the gateway treats the connection as truly local:
 
 ```javascript
 function normalizeProxyHeaders(req, res, next) {
@@ -148,8 +150,12 @@ function normalizeProxyHeaders(req, res, next) {
   req.headers["x-forwarded-for"] = "127.0.0.1";
 
   // Override Host to localhost so gateway treats this as a local connection
-  // Without this, the gateway sees the Railway domain and treats it as remote
   req.headers["host"] = `localhost:${INTERNAL_GATEWAY_PORT}`;
+
+  // Override Origin to match the Host header
+  // Even with allowedOrigins configured, OpenClaw's gateway still treats
+  // non-localhost origins as "remote" and requires device pairing.
+  req.headers["origin"] = `http://localhost:${INTERNAL_GATEWAY_PORT}`;
 
   // Remove other proxy headers...
   delete req.headers["x-forwarded-host"];
@@ -160,13 +166,19 @@ function normalizeProxyHeaders(req, res, next) {
 **Pros:**
 - ✅ Gateway treats connection as local (no "pairing required")
 - ✅ Works with allowInsecureAuth=true
-- ✅ No "pairing required" errors (allowInsecureAuth works)
-- ✅ Works with allowedOrigins for origin validation
+- ✅ Origin header matches Host header for consistency
 - ✅ No "pairing required" errors
-- ✅ Works with allowInsecureAuth=true
 
 **Cons:**
-- Header manipulation (including Host header)
+- Header manipulation (Host and Origin headers)
+
+### v1.1.5: Override Host Header Only (Superseded) ⚠️
+
+**Tag:** `v1.1.5-override-host-header`
+
+**Issue:** Setting `Host: localhost:18789` wasn't enough - the gateway still saw non-localhost Origin header (Railway domain) and treated connections as remote, causing "pairing required" errors even with `allowInsecureAuth=true` and `allowedOrigins` configured.
+
+**Use v1.1.6 instead.**
 
 ### v1.1.4: Normalize X-Forwarded-For (Superseded) ⚠️
 
@@ -215,25 +227,27 @@ function getPublicUrl() {
 
 ---
 
-## Current Implementation (v1.1.5)
+## Current Implementation (v1.1.6)
 
-The final solution combines **four complementary approaches**:
+The final solution combines **five complementary approaches**:
 
 1. **allowedOrigins** - Allows Railway public domain for WebSocket connections
 2. **trustedProxies** - Trusts 127.0.0.1 (the wrapper) as a proxy
 3. **Normalize X-Forwarded-For** - Replaces Railway's proxy header with 127.0.0.1
 4. **Override Host Header** - Sets Host to localhost:18789 for local connection treatment
+5. **Override Origin Header** - Sets Origin to http://localhost:18789 for local connection treatment
 
-### Why All Four Are Needed
+### Why All Five Are Needed
 
 | Component | Purpose | What Happens Without It |
 |-----------|---------|-------------------------|
 | `allowedOrigins` | Validate WebSocket origin | "Origin not allowed" (code 1008) |
 | `trustedProxies` | Trust 127.0.0.1 as proxy | "Proxy headers detected from untrusted address" |
 | `Normalize X-Forwarded-For` | Replace with 127.0.0.1 | Gateway sees fwd=n/a, treats connection as remote |
-| `Override Host Header` | Set Host to localhost | Gateway sees Railway domain, treats as remote, requires pairing |
+| `Override Host Header` | Set Host to localhost | Gateway sees Railway domain, treats as remote |
+| `Override Origin Header` | Set Origin to localhost | Gateway sees Railway domain, treats as remote, requires pairing even with allowInsecureAuth |
 
-## Current Implementation (v1.1.4 - superseded by v1.1.5)
+## Current Implementation (v1.1.5 - superseded by v1.1.6)
 
 ### Architecture
 
@@ -344,13 +358,14 @@ No configuration needed - the template auto-detects `localhost` URLs.
 
 | Tag | Approach | Use Case |
 |-----|----------|----------|
-| `v1.1.5-override-host-header` | ✅ **Current** - Override Host header + X-Forwarded-For normalization + allowedOrigins + trustedProxies | Production, recommended |
+| `v1.1.6-override-both-headers` | ✅ **Current** - Override Host AND Origin headers + X-Forwarded-For normalization + allowedOrigins + trustedProxies | Production, recommended |
+| `v1.1.5-override-host-header` | ⚠️ Incomplete - Only overrides Host header (missing Origin override, still causes pairing) | Don't use |
 | `v1.1.4-normalize-x-forwarded-for` | ⚠️ Incomplete - Only normalizes X-Forwarded-For (missing Host override) | Don't use |
 | `v1.1.3-strip-proxy-headers` | ⚠️ Broken - Strips X-Forwarded-For (causes fwd=n/a error) | Don't use |
 | `v1.1.2-trusted-proxies` | Incomplete - Only allowedOrigins + trustedProxies (missing header normalization) | Don't use |
 | `v1.1.1-railway-public-domain` | Incomplete - Only allowedOrigins (missing trustedProxies + header normalization) | Don't use |
 | `v1.1.0-allowed-origins` | Legacy - Manual `PUBLIC_URL` or auto-detect | If Railway env var changes |
-| `v1.0.0-railway-fix` | Legacy - Full header rewriting | Last resort fallback |
+| `v1.0.0-railway-fix` | Legacy - Full header rewriting (including Origin) | Last resort fallback |
 
 ### Rollback Commands
 
@@ -406,6 +421,11 @@ function normalizeProxyHeaders(req, res, next) {
   // Override Host to localhost so gateway treats this as a local connection
   req.headers["host"] = `localhost:${INTERNAL_GATEWAY_PORT}`;
 
+  // Override Origin to match the Host header
+  // Even with allowedOrigins configured, OpenClaw's gateway still treats
+  // non-localhost origins as "remote" and requires device pairing.
+  req.headers["origin"] = `http://localhost:${INTERNAL_GATEWAY_PORT}`;
+
   // Remove other proxy headers that we don't need
   delete req.headers["x-forwarded-host"];
   delete req.headers["x-forwarded-proto"];
@@ -418,7 +438,7 @@ function normalizeProxyHeaders(req, res, next) {
 }
 ```
 
-**Important:** We DO modify the `Host` header to `localhost:18789` so the gateway treats the connection as local. The `Origin` header is NOT modified - it's handled by OpenClaw's `allowedOrigins` configuration. Without overriding `Host`, the gateway sees the Railway domain and treats the connection as remote, requiring device pairing.
+**Important:** We DO modify BOTH `Host` AND `Origin` headers to `localhost:18789` so the gateway treats the connection as truly local. The `allowedOrigins` configuration is still set (as a fallback), but the Origin header override is what actually prevents the "pairing required" error. Without overriding both headers, the gateway sees the Railway domain in the Origin and treats the connection as remote, requiring device pairing even with `allowInsecureAuth=true`.
 
 ```json
 {
@@ -538,7 +558,8 @@ The origin isn't in `allowedOrigins`. Check:
 
 | Version | Date | Changes |
 |---------|------|---------|
-| v1.1.5 | 2026-02-22 | Override Host header to localhost (fixes "pairing required" with non-local Host) |
+| v1.1.6 | 2026-02-22 | Override BOTH Host AND Origin headers to localhost (fixes "pairing required" even with allowInsecureAuth) |
+| v1.1.5 | 2026-02-22 | Override Host header to localhost - INCOMPLETE, still has pairing issue due to non-local Origin |
 | v1.1.4 | 2026-02-22 | Replace X-Forwarded-For with 127.0.0.1 - INCOMPLETE, still has pairing issue |
 | v1.1.3 | 2025-02-22 | Strip Railway proxy headers (X-Forwarded-*) - BROKEN, causes fwd=n/a |
 | v1.1.2 | 2025-02-22 | Configure gateway.trustedProxies to trust wrapper |
@@ -548,5 +569,5 @@ The origin isn't in `allowedOrigins`. Check:
 
 ---
 
-**Document Version:** 1.1.5
+**Document Version:** 1.1.6
 **Last Updated:** 2026-02-22
