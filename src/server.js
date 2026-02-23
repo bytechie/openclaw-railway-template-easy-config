@@ -741,6 +741,45 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
 
       console.log(`[onboard] ========== TOKEN DIAGNOSTIC END ==========`);
 
+      // Create .env file with API key for gateway process
+      // This is needed for the gateway to read the API key
+      try {
+        const envPath = path.join(STATE_DIR, ".env");
+        let envContent = "";
+
+        // Map auth choices to their environment variable names
+        // Note: Some providers use OPENAI_API_KEY even when they're not OpenAI
+        const apiKeyEnvVars = {
+          "openai-api-key": "OPENAI_API_KEY",
+          "atlas-api-key": "OPENAI_API_KEY",  // Atlas Cloud uses OpenAI-compatible API
+          "zai-api-key": "OPENAI_API_KEY",   // Z.AI might use OPENAI_API_KEY format
+          "minimax-api": "OPENAI_API_KEY",
+          "minimax-api-lightning": "OPENAI_API_KEY",
+          "moonshot-api-key": "MOONSHOT_API_KEY",
+          "kimi-code-api-key": "KIMI_API_KEY",
+          "gemini-api-key": "GEMINI_API_KEY",
+        };
+
+        // Get the effective auth choice (after mapping)
+        const authChoiceMap = {
+          "atlas-api-key": "openai-api-key",
+        };
+        const effectiveAuthChoice = authChoiceMap[payload.authChoice] || payload.authChoice;
+
+        const envVarName = apiKeyEnvVars[effectiveAuthChoice];
+        if (envVarName && payload.authSecret?.trim()) {
+          envContent = `${envVarName}=${payload.authSecret.trim()}\n`;
+          fs.writeFileSync(envPath, envContent, { mode: 0o600 });
+          console.log(`[onboard] ✓ Created .env file with ${envVarName} for ${effectiveAuthChoice}`);
+          extra += `\n[onboard] ✓ Created .env file for gateway API key access (${envVarName})\n`;
+        } else {
+          console.log(`[onboard] No .env file created (auth choice: ${payload.authChoice})`);
+        }
+      } catch (err) {
+        console.error(`[onboard] ERROR: Failed to create .env file: ${err}`);
+        extra += `\n[ERROR] Failed to create .env file: ${String(err)}\n`;
+      }
+
       await runCmd(
         OPENCLAW_NODE,
         clawArgs(["config", "set", "gateway.bind", "loopback"]),
