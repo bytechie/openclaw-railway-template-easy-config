@@ -165,9 +165,8 @@ async function startGateway() {
     "--port",
     String(INTERNAL_GATEWAY_PORT),
     "--auth",
-    "token",
-    "--token",
-    OPENCLAW_GATEWAY_TOKEN,
+    "trusted-proxy",
+    // No --token flag needed for trusted-proxy mode
   ];
 
   // Read the .env file to get the API key for the gateway process
@@ -568,9 +567,8 @@ function buildOnboardArgs(payload) {
     "--gateway-port",
     String(INTERNAL_GATEWAY_PORT),
     "--gateway-auth",
-    "token",
-    "--gateway-token",
-    OPENCLAW_GATEWAY_TOKEN,
+    "trusted-proxy",
+    // No --gateway-token flag needed for trusted-proxy mode
     "--flow",
     payload.flow || "quickstart",
   ];
@@ -780,10 +778,9 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
         ]),
       );
 
-      // Configure Control UI to allow Railway origins and skip device pairing
-      // Railway domains are dynamic, so use Host-header fallback which allows
-      // origins that match the request Host header (exactly Railway's scenario)
-      console.log(`[onboard] Configuring Control UI origin and pairing policy...`);
+      // Configure Control UI and Gateway auth for trusted-proxy mode
+      // Using trusted-proxy auth mode eliminates the need for dangerouslyDisableDeviceAuth
+      console.log(`[onboard] Configuring Control UI origin and trusted-proxy auth policy...`);
 
       // Allow origins that match the Host header (for Railway dynamic domains)
       const fallbackResult = await runCmd(
@@ -792,13 +789,21 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
       );
       console.log(`[onboard] dangerouslyAllowHostHeaderOriginFallback result: code=${fallbackResult.code}, output=${fallbackResult.output?.slice(0, 150)}`);
 
-      // Disable device identity checks for Control UI (token auth mode requires this for pairing bypass)
-      // Note: PR #25428 only helps with trusted-proxy auth mode, not token auth mode
-      const deviceAuthResult = await runCmd(
+      // Configure trusted-proxy auth: specify which headers must be present
+      // and which header contains the authenticated user identity
+      const trustedProxyConfig = {
+        userHeader: "x-railway-user",  // Header containing user identity
+        requiredHeaders: [
+          "x-forwarded-proto",   // Must be present (validates request came through Railway)
+          "x-forwarded-host",   // Must be present
+          "x-real-ip",           // Optional but helpful
+        ],
+      };
+      const trustedProxyResult = await runCmd(
         OPENCLAW_NODE,
-        clawArgs(["config", "set", "gateway.controlUi.dangerouslyDisableDeviceAuth", "true"]),
+        clawArgs(["config", "set", "--json", "gateway.auth.trustedProxy", JSON.stringify(trustedProxyConfig)]),
       );
-      console.log(`[onboard] dangerouslyDisableDeviceAuth result: code=${deviceAuthResult.code}, output=${deviceAuthResult.output?.slice(0, 150)}`);
+      console.log(`[onboard] gateway.auth.trustedProxy result: code=${trustedProxyResult.code}, output=${trustedProxyResult.output?.slice(0, 150)}`);
 
       // Trust the wrapper (127.0.0.1) as a proxy for client IP detection
       const proxiesResult = await runCmd(
@@ -1089,14 +1094,18 @@ proxy.on("error", (err, _req, _res) => {
   console.error("[proxy]", err);
 });
 
-// Inject auth token into HTTP proxy requests
+// Inject auth token and user identity into HTTP proxy requests
 proxy.on("proxyReq", (proxyReq, req, res) => {
   proxyReq.setHeader("Authorization", `Bearer ${OPENCLAW_GATEWAY_TOKEN}`);
+  // Add user identity header for trusted-proxy auth mode
+  proxyReq.setHeader("x-railway-user", "railway-admin");
 });
 
-// Inject auth token into WebSocket upgrade requests
+// Inject auth token and user identity into WebSocket upgrade requests
 proxy.on("proxyReqWs", (proxyReq, req, socket, options, head) => {
   proxyReq.setHeader("Authorization", `Bearer ${OPENCLAW_GATEWAY_TOKEN}`);
+  // Add user identity header for trusted-proxy auth mode
+  proxyReq.setHeader("x-railway-user", "railway-admin");
 });
 
 app.use(async (req, res) => {
