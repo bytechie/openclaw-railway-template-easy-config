@@ -72,6 +72,9 @@ USER root
 RUN chown -R root:root /home/linuxbrew/.linuxbrew
 ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH}"
 
+# Install gog CLI for Google Workspace skill (Gmail, Calendar, Drive, etc.)
+RUN brew install steipete/tap/gogcli
+
 WORKDIR /app
 
 # Wrapper deps
