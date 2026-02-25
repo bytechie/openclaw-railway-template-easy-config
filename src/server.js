@@ -765,20 +765,21 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
 
       // Configure Control UI to allow Railway origins and trust the wrapper as a proxy
       // This fixes "origin not allowed" and "untrusted proxy" errors without header stripping
-      await runCmd(
+      console.log(`[onboard] Configuring Control UI origin policy...`);
+
+      // Allow all origins using wildcard (Railway domains are dynamic)
+      const originsResult = await runCmd(
         OPENCLAW_NODE,
-        clawArgs(["config", "set", "gateway.controlUi.allowedOrigins", "[]"]),
+        clawArgs(["config", "set", "--json", "gateway.controlUi.allowedOrigins", '["*"]']),
       );
-      // Allow all origins (Railway domains are dynamic, wildcard not supported)
-      await runCmd(
-        OPENCLAW_NODE,
-        clawArgs(["config", "set", "gateway.controlUi.allowAllOrigins", "true"]),
-      );
+      console.log(`[onboard] allowedOrigins result: code=${originsResult.code}, output=${originsResult.output?.slice(0, 150)}`);
+
       // Trust the wrapper (127.0.0.1) as a proxy so it can forward real client IPs
-      await runCmd(
+      const proxiesResult = await runCmd(
         OPENCLAW_NODE,
-        clawArgs(["config", "set", "gateway.trustedProxies", "['127.0.0.1', '::1']"]),
+        clawArgs(["config", "set", "--json", "gateway.trustedProxies", '["127.0.0.1", "::1", "localhost"]']),
       );
+      console.log(`[onboard] trustedProxies result: code=${proxiesResult.code}, output=${proxiesResult.output?.slice(0, 150)}`);
 
       const channelsHelp = await runCmd(
         OPENCLAW_NODE,
