@@ -763,6 +763,23 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
         ]),
       );
 
+      // Configure Control UI to allow Railway origins and trust the wrapper as a proxy
+      // This fixes "origin not allowed" and "untrusted proxy" errors without header stripping
+      await runCmd(
+        OPENCLAW_NODE,
+        clawArgs(["config", "set", "gateway.controlUi.allowedOrigins", "[]"]),
+      );
+      // Allow all origins (Railway domains are dynamic, wildcard not supported)
+      await runCmd(
+        OPENCLAW_NODE,
+        clawArgs(["config", "set", "gateway.controlUi.allowAllOrigins", "true"]),
+      );
+      // Trust the wrapper (127.0.0.1) as a proxy so it can forward real client IPs
+      await runCmd(
+        OPENCLAW_NODE,
+        clawArgs(["config", "set", "gateway.trustedProxies", "['127.0.0.1', '::1']"]),
+      );
+
       const channelsHelp = await runCmd(
         OPENCLAW_NODE,
         clawArgs(["channels", "add", "--help"]),
