@@ -231,13 +231,30 @@ async function ensureGatewayRunning() {
 
 async function restartGateway() {
   if (gatewayProc) {
+    const oldProc = gatewayProc;
     try {
-      gatewayProc.kill("SIGTERM");
+      oldProc.kill("SIGTERM");
     } catch {
       // ignore
     }
-    // Give it a moment to exit and release the port.
-    await sleep(750);
+    // Wait for the process to actually exit, not just a fixed delay.
+    // Use a longer timeout for graceful shutdown with active WebSocket connections.
+    const timeoutMs = 10_000;
+    const start = Date.now();
+    while (oldProc.exitCode === null && Date.now() - start < timeoutMs) {
+      await sleep(100);
+    }
+    if (oldProc.exitCode === null) {
+      console.warn(`[gateway] Process did not exit after ${timeoutMs}ms, forcing SIGKILL`);
+      try {
+        oldProc.kill("SIGKILL");
+        await sleep(500);
+      } catch {
+        // ignore
+      }
+    } else {
+      console.log(`[gateway] Process exited cleanly (code=${oldProc.exitCode})`);
+    }
     gatewayProc = null;
   }
   return ensureGatewayRunning();
@@ -708,8 +725,32 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
 
     // Optional channel setup (only after successful onboarding, and only if the installed CLI supports it).
     if (ok) {
-      // Ensure gateway token is written into config so the browser UI can authenticate reliably.
-      // (We also enforce loopback bind since the wrapper proxies externally.)
+      // IMPORTANT: Set origin validation and proxy settings FIRST, before other configs that trigger restarts.
+      // This prevents "origin not allowed" errors during the restart cascade.
+      console.log(`[onboard] Configuring Control UI origin and pairing policy (BEFORE other configs)...`);
+
+      // Allow origins that match the Host header (for Railway dynamic domains)
+      const fallbackResult = await runCmd(
+        OPENCLAW_NODE,
+        clawArgs(["config", "set", "gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback", "true"]),
+      );
+      console.log(`[onboard] dangerouslyAllowHostHeaderOriginFallback result: code=${fallbackResult.code}, output=${fallbackResult.output?.slice(0, 150)}`);
+
+      // Disable device identity checks for Control UI (token auth mode requires this for pairing bypass)
+      const deviceAuthResult = await runCmd(
+        OPENCLAW_NODE,
+        clawArgs(["config", "set", "gateway.controlUi.dangerouslyDisableDeviceAuth", "true"]),
+      );
+      console.log(`[onboard] dangerouslyDisableDeviceAuth result: code=${deviceAuthResult.code}, output=${deviceAuthResult.output?.slice(0, 150)}`);
+
+      // Trust the wrapper (127.0.0.1) as a proxy for client IP detection
+      const proxiesResult = await runCmd(
+        OPENCLAW_NODE,
+        clawArgs(["config", "set", "--json", "gateway.trustedProxies", '["127.0.0.1", "::1", "localhost"]']),
+      );
+      console.log(`[onboard] trustedProxies result: code=${proxiesResult.code}, output=${proxiesResult.output?.slice(0, 150)}`);
+
+      // Now set the remaining gateway configs (these will trigger restarts, but origin validation is already configured)
       console.log(`[onboard] Now syncing wrapper token to config (${OPENCLAW_GATEWAY_TOKEN.slice(0, 8)}...)`);
 
       await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.mode", "local"]));
@@ -779,33 +820,6 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
           String(INTERNAL_GATEWAY_PORT),
         ]),
       );
-
-      // Configure Control UI to allow Railway origins and skip device pairing
-      // Railway domains are dynamic, so use Host-header fallback which allows
-      // origins that match the request Host header (exactly Railway's scenario)
-      console.log(`[onboard] Configuring Control UI origin and pairing policy...`);
-
-      // Allow origins that match the Host header (for Railway dynamic domains)
-      const fallbackResult = await runCmd(
-        OPENCLAW_NODE,
-        clawArgs(["config", "set", "gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback", "true"]),
-      );
-      console.log(`[onboard] dangerouslyAllowHostHeaderOriginFallback result: code=${fallbackResult.code}, output=${fallbackResult.output?.slice(0, 150)}`);
-
-      // Disable device identity checks for Control UI (token auth mode requires this for pairing bypass)
-      // Note: PR #25428 only helps with trusted-proxy auth mode, not token auth mode
-      const deviceAuthResult = await runCmd(
-        OPENCLAW_NODE,
-        clawArgs(["config", "set", "gateway.controlUi.dangerouslyDisableDeviceAuth", "true"]),
-      );
-      console.log(`[onboard] dangerouslyDisableDeviceAuth result: code=${deviceAuthResult.code}, output=${deviceAuthResult.output?.slice(0, 150)}`);
-
-      // Trust the wrapper (127.0.0.1) as a proxy for client IP detection
-      const proxiesResult = await runCmd(
-        OPENCLAW_NODE,
-        clawArgs(["config", "set", "--json", "gateway.trustedProxies", '["127.0.0.1", "::1", "localhost"]']),
-      );
-      console.log(`[onboard] trustedProxies result: code=${proxiesResult.code}, output=${proxiesResult.output?.slice(0, 150)}`);
 
       const channelsHelp = await runCmd(
         OPENCLAW_NODE,
