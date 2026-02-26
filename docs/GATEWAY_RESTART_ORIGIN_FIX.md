@@ -33,6 +33,37 @@ Port 18789 is already in use
 
 Connections arriving between these restarts encountered partially applied configuration, causing authentication and origin validation failures.
 
+### Issue 3: Middleware Race Condition During Onboarding
+**Symptoms:**
+```
+[onboard] Stopping gateway to apply config changes atomically...
+[onboard] Gateway stopped, now applying all config changes...
+[onboard] allowedOrigins result: code=0
+[gateway] ✓ Fixed permissions  <-- GATEWAY STARTING DURING ONBOARDING!
+[gateway] starting with command...
+[err] Port 18789 is already in use
+```
+
+**Root Cause:** The Express middleware calls `ensureGatewayRunning()` on every request once `isConfigured()` is true:
+
+```javascript
+app.use(async (req, res) => {
+  if (isConfigured()) {
+    await ensureGatewayRunning();  // <-- Triggered during onboarding!
+  }
+  return proxy.web(req, res, { target: GATEWAY_TARGET });
+});
+```
+
+**Race condition sequence:**
+1. Onboarding starts, calls `stopGateway()`
+2. `openclaw onboard` creates `openclaw.json` → `isConfigured()` becomes `true`
+3. Browser makes background requests (WebSocket polling, etc.)
+4. Middleware sees `isConfigured() == true` → calls `ensureGatewayRunning()`
+5. Gateway starts WHILE we're still applying configs
+6. Config watcher sees more changes → triggers restart
+7. Port conflicts occur because both manual and watcher-initiated gateways compete
+
 ## Solutions Implemented
 
 ### Fix 1: Proper Process Exit Waiting
@@ -146,6 +177,47 @@ await runCmd(
 - Works automatically with Railway's dynamic domains
 - Maintains fallback for local development
 
+### Fix 4: Onboarding Lock to Prevent Middleware Race Condition
+**File:** `src/server.js`
+
+**Problem:** Even after stopping the gateway, the Express middleware was starting it again when background requests arrived during onboarding.
+
+**Solution:** Add an `onboardingInProgress` flag that blocks the middleware from starting the gateway:
+
+```javascript
+// Global flag
+let onboardingInProgress = false;
+
+// In onboarding handler
+app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
+  onboardingInProgress = true;  // Set at start
+  try {
+    // ... onboarding logic ...
+    await stopGateway();
+    // Apply all config changes...
+    await restartGateway();
+  } catch (err) {
+    // ... error handling ...
+  } finally {
+    onboardingInProgress = false;  // Always clear
+  }
+});
+
+// In middleware
+app.use(async (req, res) => {
+  if (isConfigured() && !onboardingInProgress) {  // Check flag!
+    await ensureGatewayRunning();
+  }
+  return proxy.web(req, res, { target: GATEWAY_TARGET });
+});
+```
+
+**Benefits:**
+- Prevents middleware from starting gateway during onboarding
+- Eliminates port conflicts from race conditions
+- `finally` block ensures cleanup even if onboarding fails
+- WebSocket upgrade handler also checks the flag
+
 ## Configuration Settings Applied
 
 The following settings are now applied atomically during onboarding:
@@ -181,6 +253,8 @@ After deployment, successful onboarding should show:
 
 ### What Should Be Fixed
 - ❌ `Error: listen EADDRINUSE: address already in use :::18789`
+- ❌ `Port 18789 is already in use`
+- ❌ `Gateway failed to start: gateway already running`
 - ❌ `[ws] origin not allowed`
 - ❌ `[ws] code=1008 reason=pairing required`
 - ❌ `[ws] Proxy headers detected from untrusted address`
@@ -192,7 +266,10 @@ After deployment, successful onboarding should show:
 
 ## Commits
 
+- `ad4321f` - fix: prevent middleware from starting gateway during onboarding
 - `55543ee` - fix: stop gateway before config changes to prevent partial-config errors
+- `a2dafe3` - feat: install gog CLI for Google Workspace skill
+- `c5e62e7` - docs: add gateway restart and origin validation fix summary
 - `0a80d46` - fix: use Railway public domain for explicit origin configuration
 - (earlier commits for initial restart fix)
 
