@@ -1089,6 +1089,33 @@ app.get("/setup/api/debug", requireSetupAuth, async (_req, res) => {
   });
 });
 
+app.get("/setup/api/pairing/list", requireSetupAuth, async (_req, res) => {
+  const r = await runCmd(
+    OPENCLAW_NODE,
+    clawArgs(["pairing", "list"]),
+  );
+  if (r.code !== 0) {
+    return res.json({ ok: true, requests: [] });
+  }
+  // Parse output format: "CODE │ telegramUserId │ timestamp"
+  const lines = r.output.trim().split('\n');
+  const requests = [];
+  // Skip header row (if present) and parse each line
+  for (const line of lines) {
+    if (line.includes('│')) {
+      const parts = line.split('│').map(s => s.trim());
+      if (parts.length >= 2 && parts[0] && !parts[0].includes('Code')) {
+        requests.push({
+          code: parts[0],
+          userId: parts[1] || 'unknown',
+          timestamp: parts[2] || new Date().toISOString()
+        });
+      }
+    }
+  }
+  return res.json({ ok: true, requests });
+});
+
 app.post("/setup/api/pairing/approve", requireSetupAuth, async (req, res) => {
   const { channel, code } = req.body || {};
   if (!channel || !code) {
