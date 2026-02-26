@@ -12,7 +12,7 @@ This guide walks you through setting up the **gog** skill for OpenClaw, which pr
 
 ## Overview
 
-The **gog** skill uses the `gh` CLI to interact with Google Workspace APIs. It requires OAuth 2.0 credentials to authenticate with Google's services.
+The **gog** skill uses the `gog` CLI to interact with Google Workspace APIs. It requires OAuth 2.0 credentials to authenticate with Google's services.
 
 **Deployment Method:** This guide uses the base64 environment variable approach for secure credential storage on Railway.
 
@@ -134,6 +134,18 @@ When you deploy from this Railway template, the `GOOGLE_CLIENT_SECRET_BASE64` va
 
 **Note:** If you don't see the variable, click "New Variable" and add it manually, then contact us to check the template configuration.
 
+### Additional Required Variables
+
+For the gog CLI to work properly in Railway's container environment, you also need to set these variables (they are pre-created in the template):
+
+| Variable | Value | Description |
+|----------|-------|-------------|
+| `GOG_KEYRING_BACKEND` | `file` | Use file-based storage (required for containers) |
+| `GOG_KEYRING_PASSWORD` | *(secure password)* | Password for encrypted token storage - **set a strong password** |
+| `GOG_CONFIG_DIR` | `/data/.gog-config` | Directory to persist gog config (tokens, settings) |
+
+**Important:** The `GOG_KEYRING_PASSWORD` is required to encrypt/decrypt your OAuth tokens. Choose a strong password and save it - changing it later will require re-authenticating.
+
 ---
 
 ## Step 7: Redeploy and Verify
@@ -152,9 +164,57 @@ When you deploy from this Railway template, the `GOOGLE_CLIENT_SECRET_BASE64` va
 
 ---
 
-## Step 8: Test the gog Skill
+## Step 8: Authenticate Your Google Account
 
-Once deployed, you can test the gog skill via the OpenClaw Control UI or your configured channel (Telegram, Discord, etc.):
+The `client_secret.json` file is now in place, but you still need to authorize your Google account. This is a one-time setup that stores an OAuth refresh token.
+
+### Open Railway Shell
+
+1. Go to your Railway service
+2. Click the **Shell** tab to open a terminal in your container
+
+### Run the Authentication Commands
+
+```bash
+# 1. Tell gog where to find the OAuth client credentials
+gog auth credentials /data/.openclaw/credentials/client_secret.json
+
+# 2. Authorize your Google account (uses manual flow for headless containers)
+gog auth add your@gmail.com --services gmail --manual
+```
+
+### Manual OAuth Flow
+
+The `--manual` flag will:
+1. Print an authorization URL in the terminal
+2. Open that URL in your **local** browser
+3. After approving, copy the full redirect URL from your browser's address bar
+4. Paste it back into the Railway Shell terminal
+
+**Example:**
+
+```bash
+$ gog auth add you@gmail.com --services gmail --manual
+Open this URL in a browser: https://accounts.google.com/o/oauth2/auth?...
+Enter the full redirect URL: http://127.0.0.1:8080/?code=4/0A...
+✅ Authorized: you@gmail.com
+```
+
+### Verify Authentication
+
+```bash
+# Check authenticated accounts
+gog auth list
+
+# Test Gmail access
+gog gmail labels list
+```
+
+---
+
+## Step 9: Test the gog Skill
+
+Once authenticated, you can test the gog skill via the OpenClaw Control UI or your configured channel (Telegram, Discord, etc.):
 
 ### Example Commands:
 
@@ -185,6 +245,19 @@ Once deployed, you can test the gog skill via the OpenClaw Control UI or your co
 ---
 
 ## Troubleshooting
+
+### Issue: "Google Workspace (gog) isn't set up on this system"
+
+**Solution:** This means the `gog` CLI is installed but you haven't authenticated your Google account yet.
+
+1. Open Railway Shell
+2. Run `gog auth list` - should show "No accounts found"
+3. Run the authentication commands from **Step 8**:
+   ```bash
+   gog auth credentials /data/.openclaw/credentials/client_secret.json
+   gog auth add your@gmail.com --services gmail --manual
+   ```
+4. Verify with `gog auth list` - should now show your account
 
 ### Issue: "Invalid Credentials" Error
 

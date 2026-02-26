@@ -290,6 +290,37 @@ function requireSetupAuth(req, res, next) {
   return next();
 }
 
+// Configure gog CLI environment for persistent authentication in containers
+// Must be called before decodeCredentialsFromEnv to set up the environment
+function configureGogEnvironment() {
+  // Set default values if not provided
+  const gogConfigDir = process.env.GOG_CONFIG_DIR || "/data/.gog-config";
+  const keyringBackend = process.env.GOG_KEYRING_BACKEND || "file";
+  const keyringPassword = process.env.GOG_KEYRING_PASSWORD || "";
+
+  // Set XDG_CONFIG_HOME to persist gog config to Railway volume
+  process.env.XDG_CONFIG_HOME = gogConfigDir;
+  process.env.GOG_KEYRING_BACKEND = keyringBackend;
+
+  // Create gog config directory
+  try {
+    fs.mkdirSync(gogConfigDir, { recursive: true });
+    console.log(`[gog] ✅ Config directory: ${gogConfigDir}`);
+  } catch (err) {
+    console.warn(`[gog] ⚠️  Could not create config directory: ${err.message}`);
+  }
+
+  // Warn if keyring password is not set
+  if (!keyringPassword || keyringPassword.includes("Replace")) {
+    console.warn(`[gog] ⚠️  GOG_KEYRING_PASSWORD not set or is placeholder`);
+    console.warn(`[gog]    For Google Workspace features, set a secure password in Railway variables`);
+  } else {
+    console.log(`[gog] ✅ Keyring backend: ${keyringBackend}`);
+  }
+
+  return { gogConfigDir, keyringBackend, keyringPassword };
+}
+
 // Decode base64-encoded credentials on startup
 // This allows secure credential storage via environment variables
 function decodeCredentialsFromEnv() {
@@ -333,13 +364,18 @@ function decodeCredentialsFromEnv() {
 
     // Set environment variable for gog skill to find it
     process.env.GOOGLE_CREDENTIALS_PATH = credentialsPath;
+
+    console.log(`[gog] ℹ️  To complete Google Workspace setup, run via Railway Shell:`);
+    console.log(`[gog]    gog auth credentials ${credentialsPath}`);
+    console.log(`[gog]    gog auth add your@gmail.com --services gmail --manual`);
   } catch (err) {
     console.error(`[credentials] ❌ Failed to decode Google credentials: ${err.message}`);
     console.error(`[credentials] The GOOGLE_CLIENT_SECRET_BASE64 environment variable may be invalid`);
   }
 }
 
-// Decode credentials on startup
+// Configure gog environment and decode credentials on startup
+configureGogEnvironment();
 decodeCredentialsFromEnv();
 
 const app = express();
