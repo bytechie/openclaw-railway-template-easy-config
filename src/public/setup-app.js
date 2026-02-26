@@ -12,6 +12,7 @@
     isConfigured: false,
     authGroups: [],
     atlasModels: [],
+    pairingRefreshTimer: null,
     formData: {
       authGroup: '',
       authChoice: '',
@@ -164,6 +165,7 @@
     els.accordionHeaders = document.querySelectorAll('.accordion-header');
     // Pairing requests elements
     els.pairingRequestsSection = $('#pairing-requests-section');
+    els.pairingRefreshBtn = $('#pairing-refresh-btn');
     els.pairingLoading = $('#pairing-loading');
     els.pairingEmpty = $('#pairing-empty');
     els.pairingList = $('#pairing-list');
@@ -681,6 +683,18 @@
   function refreshPairingRequests() {
     if (!els.pairingRequestsSection) return;
 
+    // Clear any existing auto-refresh timer
+    if (state.pairingRefreshTimer) {
+      clearTimeout(state.pairingRefreshTimer);
+      state.pairingRefreshTimer = null;
+    }
+
+    // Add spinning animation to refresh button
+    if (els.pairingRefreshBtn) {
+      var svg = els.pairingRefreshBtn.querySelector('svg');
+      if (svg) svg.classList.add('spinning');
+    }
+
     // Show the section and loading state
     showElement(els.pairingRequestsSection);
     if (els.pairingLoading) showElement(els.pairingLoading);
@@ -691,19 +705,30 @@
     httpJson('/setup/api/pairing/list').then(function (j) {
       if (els.pairingLoading) hideElement(els.pairingLoading);
 
+      // Remove spinning animation
+      if (els.pairingRefreshBtn) {
+        var svg = els.pairingRefreshBtn.querySelector('svg');
+        if (svg) svg.classList.remove('spinning');
+      }
+
       if (!j.ok) {
         if (els.pairingError) {
           els.pairingError.textContent = 'Failed to load pairing requests';
           showElement(els.pairingError);
         }
+        // Retry on error after 30 seconds
+        state.pairingRefreshTimer = setTimeout(refreshPairingRequests, 30000);
         return;
       }
 
       if (!j.requests || j.requests.length === 0) {
         if (els.pairingEmpty) showElement(els.pairingEmpty);
+        // Auto-refresh when empty - user might be generating a code right now
+        state.pairingRefreshTimer = setTimeout(refreshPairingRequests, 30000);
         return;
       }
 
+      // Has pending requests - no auto-refresh, let user approve manually
       // Render each request as a card
       if (els.pairingList) {
         els.pairingList.innerHTML = j.requests.map(function (req) {
@@ -728,10 +753,19 @@
       }
     }).catch(function (e) {
       if (els.pairingLoading) hideElement(els.pairingLoading);
+
+      // Remove spinning animation
+      if (els.pairingRefreshBtn) {
+        var svg = els.pairingRefreshBtn.querySelector('svg');
+        if (svg) svg.classList.remove('spinning');
+      }
+
       if (els.pairingError) {
         els.pairingError.textContent = 'Error: ' + String(e);
         showElement(els.pairingError);
       }
+      // Retry on error after 30 seconds
+      state.pairingRefreshTimer = setTimeout(refreshPairingRequests, 30000);
     });
   }
 
@@ -878,6 +912,7 @@
     var resetFromBannerBtn = $('#reset-from-banner');
     var retryBtn = $('#retry-setup');
     var resetSetupBtn = $('#reset-setup');
+    var pairingRefreshBtn = $('#pairing-refresh-btn');
 
     if (resetBtn) {
       resetBtn.onclick = handleReset;
@@ -895,6 +930,12 @@
 
     if (resetSetupBtn) {
       resetSetupBtn.onclick = handleReset;
+    }
+
+    if (pairingRefreshBtn) {
+      pairingRefreshBtn.onclick = function () {
+        refreshPairingRequests();
+      };
     }
   }
 

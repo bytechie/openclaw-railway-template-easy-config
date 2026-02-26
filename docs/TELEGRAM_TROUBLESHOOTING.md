@@ -6,11 +6,12 @@ This guide covers common issues when pairing and using Telegram with OpenClaw.
 
 ## Table of Contents
 
-1. [Pairing Issues](#pairing-issues)
-2. [Common Error Messages](#common-error-messages)
-3. [Bot Not Responding](#bot-not-responding)
-4. [Permission Issues](#permission-issues)
-5. [Checking Bot Status](#checking-bot-status)
+1. [Understanding the Pairing System](#understanding-the-pairing-system)
+2. [Pairing Issues](#pairing-issues)
+3. [Common Error Messages](#common-error-messages)
+4. [Bot Not Responding](#bot-not-responding)
+5. [Permission Issues](#permission-issues)
+6. [Checking Bot Status](#checking-bot-status)
 
 ---
 
@@ -55,14 +56,15 @@ This lets you find the **correct code to approve** instead of using a newly gene
 
 ### Why Commands Like `status` and `channels list` Exist
 
-| Command | Why It's Useful | What It Tells You |
-|---------|-----------------|-------------------|
+| Command / URL | Why It's Useful | What It Tells You |
+|---------------|-----------------|-------------------|
+| `/setup` (web UI) | **Easiest: Visual pairing approval** | See pending requests, click Approve |
 | `openclaw status` | Quick health check | Is gateway running? What model? |
 | `openclaw pairing list` | Find pending connections | Who's waiting to be paired? |
 | `openclaw channels list` | Verify channel config | Is Telegram properly configured? |
 | `openclaw config get` | Debug configuration issues | What settings are actually in use? |
 
-**The pattern:** OpenClaw provides visibility commands so you can **diagnose problems yourself** without guessing.
+**The pattern:** OpenClaw provides multiple ways to **diagnose problems** — web UI (easiest), CLI commands, or API calls.
 
 ### Why the "unknown requestId" Error Happens
 
@@ -79,7 +81,9 @@ This is the **most common pairing confusion**:
 
 > **Never use a freshly generated `/start` code for approval.**
 >
-> First, check `openclaw pairing list` to see what pending requests exist in the system. Use one of those codes instead.
+> **Recommended:** Visit `/setup` and use the **"Pending Pairing Requests"** section — it shows all actual pending requests with Approve buttons.
+>
+> **Alternative:** Run `openclaw pairing list` to see what pending requests exist in the system, then approve with `openclaw pairing approve <code>`.
 
 ---
 
@@ -103,9 +107,17 @@ The pairing code you're using doesn't match any pending request in OpenClaw. Thi
 #### Method 1: Use the Setup Wizard (Recommended)
 
 1. Visit your OpenClaw setup page: `https://your-url.up.railway.app/setup`
-2. Look for the **"Pending Pairing Requests"** section
-3. Find your Telegram user and click **Approve**
-4. Your bot should start responding immediately
+2. Look for the **"Pending Pairing Requests"** section (with Telegram icon)
+3. If you see "No pending requests":
+   - Type `/start` in your Telegram bot to generate a pairing code
+   - The page **auto-refreshes every 30 seconds**, or click the **Refresh** button
+4. When your request appears, click **Approve**
+5. Your bot should start responding immediately
+
+**Tips:**
+- The **Refresh button** (top-right of the section) manually checks for new requests
+- When empty, the list **auto-refreshes** every 30 seconds — no need to manually refresh
+- After approving, the list refreshes automatically to show remaining requests
 
 #### Method 2: Use Openclaw CLI (Railway Shell)
 
@@ -260,8 +272,10 @@ Visit these URLs to verify your setup:
 
 | URL | What It Checks |
 |-----|----------------|
+| `/setup` | **Main setup page — Pending Pairing Requests section** |
 | `/setup/healthz` | Wrapper is running |
 | `/setup/api/status` | OpenClaw configuration status |
+| `/setup/api/pairing/list` | Pending pairing requests (JSON API) |
 | `/setup/api/google/status` | Google authentication status |
 
 ### Detailed Status Check
@@ -329,6 +343,33 @@ To find your Telegram user ID:
 
 ---
 
+## Web UI Refresh Workflow
+
+The `/setup` page's "Pending Pairing Requests" section has built-in refresh capabilities:
+
+### When You See "No pending requests"
+
+1. **Type `/start`** in your Telegram bot
+2. **Wait up to 30 seconds** — the page auto-refreshes automatically
+3. **Or click Refresh** — the button (top-right) checks immediately
+
+### Visual Indicators
+
+| State | What You See |
+|-------|--------------|
+| Loading | Refresh icon spins, "Loading pending requests..." |
+| Empty | Info box with "No pending requests" + auto-refresh note |
+| Has Requests | Cards showing User ID, Requested time, Code, and Approve button |
+
+### After Approving
+
+The list automatically refreshes to:
+- Remove the approved request
+- Show any remaining pending requests
+- Return to "No pending requests" if all approved
+
+---
+
 ## Still Having Issues?
 
 1. **Check the logs** — Railway Logs often contain detailed error messages
@@ -359,6 +400,24 @@ curl https://api.telegram.org/bot<BOT_TOKEN>/getMe
 
 ---
 
-**Version:** 1.0
+**Version:** 1.2
 **Last Updated:** 2026-02-26
 **For:** Railway deployment of OpenClaw with Telegram integration
+
+---
+
+## Changelog
+
+### v1.2 (2026-02-26)
+- Added **Refresh button** to "Pending Pairing Requests" section for manual refresh
+- Added **auto-refresh** every 30 seconds when no pending requests
+- Added **spinning animation** on refresh button while loading
+- Updated Method 1 instructions with refresh workflow tips
+
+### v1.1 (2026-02-26)
+- Added `/setup` web UI method for pairing approval (no CLI required)
+- Added "Pending Pairing Requests" section documentation
+- Updated health check URLs table with pairing API endpoint
+
+### v1.0 (2026-02-26)
+- Initial release with pairing system explanation and troubleshooting guide
