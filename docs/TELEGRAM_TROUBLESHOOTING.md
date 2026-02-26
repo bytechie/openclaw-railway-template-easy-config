@@ -14,6 +14,75 @@ This guide covers common issues when pairing and using Telegram with OpenClaw.
 
 ---
 
+## Understanding the Pairing System
+
+Before diving into troubleshooting, it helps to understand **how OpenClaw's pairing system works** and **why certain commands exist**.
+
+### How Pairing Works
+
+OpenClaw uses a **request-approval model** for connecting external accounts (like Telegram):
+
+```
+┌─────────────┐         ┌──────────────┐         ┌─────────────┐
+│   Telegram  │  /start  │   OpenClaw   │  await  │   Admin     │
+│   User      │─────────│   Gateway    │─────────│   Approval  │
+└─────────────┘         └──────────────┘         └─────────────┘
+      │                        │                        │
+      │                        │                        │
+      └──── Generates pairing code ────────> Stored in queue      │
+                                                        │
+      │<────── Code shown to user ──────────────────────────────────┘
+                                                        │
+      │                        │<────── Admin approves ──────┘
+      │<────────────── Now connected ───────────────────────────────┘
+```
+
+### Why `openclaw pairing list` Exists
+
+**The problem:** Each time you type `/start` in Telegram, a **new pairing code** is generated. Old codes aren't automatically cleaned up.
+
+**Why this happens:**
+- Telegram doesn't tell OpenClaw "this is the same user who tried before"
+- Each `/start` looks like a fresh connection attempt
+- OpenClaw keeps all requests pending until approved or expired
+
+**The solution:** `openclaw pairing list` shows you:
+1. **All pending requests** (including old ones)
+2. **Which Telegram user** made each request
+3. **When the request was made**
+
+This lets you find the **correct code to approve** instead of using a newly generated one that doesn't exist in the system yet.
+
+### Why Commands Like `status` and `channels list` Exist
+
+| Command | Why It's Useful | What It Tells You |
+|---------|-----------------|-------------------|
+| `openclaw status` | Quick health check | Is gateway running? What model? |
+| `openclaw pairing list` | Find pending connections | Who's waiting to be paired? |
+| `openclaw channels list` | Verify channel config | Is Telegram properly configured? |
+| `openclaw config get` | Debug configuration issues | What settings are actually in use? |
+
+**The pattern:** OpenClaw provides visibility commands so you can **diagnose problems yourself** without guessing.
+
+### Why the "unknown requestId" Error Happens
+
+This is the **most common pairing confusion**:
+
+1. User types `/start` in Telegram → Gets code `ABC123`
+2. User types `/start` again → Gets code `DEF456` (ABC123 is still pending!)
+3. Admin tries to approve `DEF456` → **Error: "unknown requestId"**
+4. System only knows about `ABC123`, not `DEF456`
+
+**The fix:** Always check `openclaw pairing list` first to see what codes the system actually knows about.
+
+### Key Takeaway
+
+> **Never use a freshly generated `/start` code for approval.**
+>
+> First, check `openclaw pairing list` to see what pending requests exist in the system. Use one of those codes instead.
+
+---
+
 ## Pairing Issues
 
 ### Problem: "unknown requestId" or "INVALID_REQUEST" Error
